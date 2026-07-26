@@ -135,7 +135,8 @@ OS clipboard
 
 ## 5. Suggested Build Phases
 
-1. **Scaffold** — TS + esbuild Obsidian plugin template, `isDesktopOnly: true`.
+1. ✅ **Scaffold** *(done — see `openspec/changes/scaffold/`)* — TS + esbuild
+   Obsidian plugin template, `isDesktopOnly: true`.
 2. **Watch mode core** — polling watcher, hash dedupe, pinned target note,
    cursor insert for open (unfocused-OK) panes, closed/deleted stop +
    alert, status bar indicator.
