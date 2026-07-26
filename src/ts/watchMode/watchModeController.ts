@@ -1,6 +1,11 @@
 import { ClipboardWatcher, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
+import { CONTENT_TYPE_SCOPE_OPTIONS, shouldInsertText, type ContentTypeScope } from "./contentTypeScope";
 import { insertText } from "./insertText";
 import type { PollableWatcher, WatchModeEventRef, WatchModeHost, WatchModeTarget } from "./types";
+
+function scopeLabel(scope: ContentTypeScope): string {
+  return CONTENT_TYPE_SCOPE_OPTIONS.find((option) => option.value === scope)!.label;
+}
 
 const DEFAULT_POLL_INTERVAL_MS = 400;
 
@@ -16,6 +21,7 @@ type WatcherFactory = (onNewText: ClipboardWatcherCallback) => PollableWatcher;
 export class WatchModeController {
   private watcher: PollableWatcher | null = null;
   private target: WatchModeTarget | null = null;
+  private scope: ContentTypeScope | null = null;
   private workspaceRefs: WatchModeEventRef[] = [];
   private vaultRefs: WatchModeEventRef[] = [];
 
@@ -34,10 +40,11 @@ export class WatchModeController {
     return this.target;
   }
 
-  start(target: WatchModeTarget): void {
+  start(target: WatchModeTarget, scope: ContentTypeScope): void {
     if (this.isRunning) this.stop();
 
     this.target = target;
+    this.scope = scope;
 
     this.watcher = this.createWatcher((text) => this.handleNewText(text));
     this.watcher.start();
@@ -48,7 +55,7 @@ export class WatchModeController {
       this.host.onFileRenamed((oldPath) => this.checkRenamed(oldPath))
     );
 
-    this.host.onStatusChange({ running: true, targetName: target.basename });
+    this.host.onStatusChange({ running: true, targetName: target.basename, scopeLabel: scopeLabel(scope) });
   }
 
   stop(): void {
@@ -57,17 +64,19 @@ export class WatchModeController {
     this.watcher?.stop();
     this.watcher = null;
     this.target = null;
+    this.scope = null;
 
     for (const ref of this.workspaceRefs) this.host.offWorkspace(ref);
     for (const ref of this.vaultRefs) this.host.offVault(ref);
     this.workspaceRefs = [];
     this.vaultRefs = [];
 
-    this.host.onStatusChange({ running: false, targetName: null });
+    this.host.onStatusChange({ running: false, targetName: null, scopeLabel: null });
   }
 
   private handleNewText(text: string): void {
-    if (!this.target) return;
+    if (!this.target || !this.scope) return;
+    if (!shouldInsertText(this.scope)) return;
     const editor = this.host.findMarkdownLeafForPath(this.target.path);
     if (!editor) return;
     // Trailing newline so consecutive clipboard entries land on their own

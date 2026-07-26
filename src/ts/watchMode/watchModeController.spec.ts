@@ -93,21 +93,29 @@ describe("WatchModeController", () => {
     const { host, onStatusChange } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target);
+    controller.start(target, "both");
 
     expect(controller.isRunning).toBe(true);
-    expect(onStatusChange).toHaveBeenCalledWith({ running: true, targetName: "Target" });
+    expect(onStatusChange).toHaveBeenCalledWith({
+      running: true,
+      targetName: "Target",
+      scopeLabel: "Both",
+    });
   });
 
   it("reports stopped state on stop and unregisters listeners", () => {
     const { host, onStatusChange, offWorkspace, offVault } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target);
+    controller.start(target, "both");
     controller.stop();
 
     expect(controller.isRunning).toBe(false);
-    expect(onStatusChange).toHaveBeenLastCalledWith({ running: false, targetName: null });
+    expect(onStatusChange).toHaveBeenLastCalledWith({
+      running: false,
+      targetName: null,
+      scopeLabel: null,
+    });
     expect(offWorkspace).toHaveBeenCalledTimes(1);
     expect(offVault).toHaveBeenCalledTimes(2);
   });
@@ -127,7 +135,7 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target);
+    controller.start(target, "both");
     trigger("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
@@ -140,7 +148,7 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target);
+    controller.start(target, "both");
     trigger("first");
     trigger("second");
 
@@ -152,16 +160,42 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target);
+    controller.start(target, "both");
 
     expect(() => trigger("pasted content")).not.toThrow();
+  });
+
+  it("inserts text when scope is 'text'", () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, trigger } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "text");
+    trigger("pasted content");
+
+    expect(editor.text).toBe("pasted content\n");
+  });
+
+  it("blocks text insertion when scope is 'image'", () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, trigger } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "image");
+    trigger("pasted content");
+
+    expect(editor.text).toBe("");
   });
 
   it("auto-stops with a notice when the target note is no longer open", () => {
     const { host, notice, triggerLayoutChange } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target); // no editor registered -> "closed"
+    controller.start(target, "both"); // no editor registered -> "closed"
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(false);
@@ -173,7 +207,7 @@ describe("WatchModeController", () => {
     editors.set(target.path, fakeEditor());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target);
+    controller.start(target, "both");
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(true);
@@ -184,7 +218,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerDeleted } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target);
+    controller.start(target, "both");
     triggerDeleted(target.path);
 
     expect(controller.isRunning).toBe(false);
@@ -195,7 +229,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerDeleted } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target);
+    controller.start(target, "both");
     triggerDeleted("notes/Other.md");
 
     expect(controller.isRunning).toBe(true);
@@ -206,7 +240,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerRenamed } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target);
+    controller.start(target, "both");
     triggerRenamed(target.path);
 
     expect(controller.isRunning).toBe(false);
@@ -218,14 +252,14 @@ describe("WatchModeController", () => {
     const controller = new WatchModeController(host, 10_000);
     const other = { path: "notes/Other.md", basename: "Other" };
 
-    controller.start(target);
-    controller.start(other);
+    controller.start(target, "text");
+    controller.start(other, "image");
 
     expect(controller.currentTarget).toEqual(other);
     expect(onStatusChange.mock.calls.map((call) => call[0])).toEqual([
-      { running: true, targetName: "Target" },
-      { running: false, targetName: null },
-      { running: true, targetName: "Other" },
+      { running: true, targetName: "Target", scopeLabel: "Text only" },
+      { running: false, targetName: null, scopeLabel: null },
+      { running: true, targetName: "Other", scopeLabel: "Images only" },
     ]);
   });
 });

@@ -137,11 +137,14 @@ OS clipboard
 
 1. ✅ **Scaffold** *(done — see `openspec/changes/scaffold/`)* — TS + esbuild
    Obsidian plugin template, `isDesktopOnly: true`.
-2. **Watch mode core** — polling watcher, hash dedupe, pinned target note,
-   cursor insert for open (unfocused-OK) panes, closed/deleted stop +
-   alert, status bar indicator.
-3. **Content-type scope** — per-activation text/images/both selector,
-   ContentRouter filtering, "last used" persistence.
+2. ✅ **Watch mode core** *(done — see
+   `openspec/changes/watch-mode-core/`)* — polling watcher, hash dedupe,
+   pinned target note, cursor insert for open (unfocused-OK) panes,
+   closed/deleted stop + alert, status bar indicator.
+3. ✅ **Content-type scope** *(done — see
+   `openspec/changes/content-type-scope/`)* — per-activation
+   text/images/both selector, ContentRouter filtering, "last used"
+   persistence.
 4. **Text formats** — managed format list in Settings (defaults + reset),
    per-activation format picker, "last used" persistence for target/format.
 5. **Images** — attachment save + link generation via Obsidian's own

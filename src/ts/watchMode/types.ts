@@ -15,6 +15,7 @@ export interface EditorLike {
 export interface WatchModeStatus {
   running: boolean;
   targetName: string | null;
+  scopeLabel: string | null;
 }
 
 export interface WatchModeTarget {

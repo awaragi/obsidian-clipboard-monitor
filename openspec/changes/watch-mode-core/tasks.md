@@ -120,5 +120,5 @@
       own line, not run together").
 - [x] 7.2 Re-ran `npm run build`, `npm run lint`, `npm test` after the
       change — all pass.
-- [ ] 7.3 Re-deployed via `npm run dev:deploy` — **pending user
-      confirmation** that consecutive pastes now land on separate lines.
+- [x] 7.3 Re-deployed via `npm run dev:deploy` — confirmed by user
+      (proceeded to next phase without further issues raised).
