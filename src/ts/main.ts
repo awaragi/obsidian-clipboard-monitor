@@ -1,23 +1,27 @@
 import { Notice, Plugin, TFile } from "obsidian";
 import { ElectronClipboardReader } from "./clipboard/clipboardReader";
+import { ClipboardMonitorSettingTab, type FormatListHost } from "./settings/clipboardMonitorSettingTab";
 import { DEFAULT_CONTENT_TYPE_SCOPE, type ContentTypeScope } from "./watchMode/contentTypeScope";
 import { ContentTypeScopeModal } from "./watchMode/contentTypeScopeModal";
 import { createObsidianHost } from "./watchMode/obsidianHost";
+import { createDefaultTextFormats, resolveLastUsedFormatId, type TextFormat } from "./watchMode/textFormat";
+import { TextFormatPickerModal } from "./watchMode/textFormatPickerModal";
 import { WatchModeController } from "./watchMode/watchModeController";
 import type { WatchModeStatus } from "./watchMode/types";
 
 interface ClipboardMonitorData {
   lastUsedScope: ContentTypeScope;
+  formats: TextFormat[];
+  lastUsedFormatId: string;
 }
 
 export default class ClipboardMonitorPlugin extends Plugin {
   private controller!: WatchModeController;
   private statusBarItem!: HTMLElement;
-  private lastUsedScope: ContentTypeScope = DEFAULT_CONTENT_TYPE_SCOPE;
+  private data!: ClipboardMonitorData;
 
   async onload() {
-    const data = (await this.loadData()) as ClipboardMonitorData | null;
-    this.lastUsedScope = data?.lastUsedScope ?? DEFAULT_CONTENT_TYPE_SCOPE;
+    this.data = await this.loadClipboardMonitorData();
 
     this.statusBarItem = this.addStatusBarItem();
     this.renderStatus({ running: false, targetName: null, scopeLabel: null });
@@ -26,6 +30,13 @@ export default class ClipboardMonitorPlugin extends Plugin {
       this.renderStatus(status)
     );
     this.controller = new WatchModeController(host);
+
+    const formatListHost: FormatListHost = {
+      getFormats: () => this.data.formats,
+      getLastUsedFormatId: () => this.data.lastUsedFormatId,
+      saveFormatData: (formats, lastUsedFormatId) => this.persistFormats(formats, lastUsedFormatId),
+    };
+    this.addSettingTab(new ClipboardMonitorSettingTab(this.app, this, formatListHost));
 
     this.addCommand({
       id: "start-watch-mode",
@@ -50,10 +61,31 @@ export default class ClipboardMonitorPlugin extends Plugin {
     this.controller?.stop();
   }
 
+  private async loadClipboardMonitorData(): Promise<ClipboardMonitorData> {
+    const loaded = (await this.loadData()) as Partial<ClipboardMonitorData> | null;
+    const formats = loaded?.formats?.length ? loaded.formats : createDefaultTextFormats();
+    return {
+      lastUsedScope: loaded?.lastUsedScope ?? DEFAULT_CONTENT_TYPE_SCOPE,
+      formats,
+      lastUsedFormatId: resolveLastUsedFormatId(formats, loaded?.lastUsedFormatId),
+    };
+  }
+
+  private async persistFormats(formats: TextFormat[], lastUsedFormatId: string): Promise<void> {
+    this.data.formats = formats;
+    this.data.lastUsedFormatId = lastUsedFormatId;
+    await this.saveData(this.data);
+  }
+
+  private activeFormat(): TextFormat {
+    const format = this.data.formats.find((f) => f.id === this.data.lastUsedFormatId);
+    return format ?? this.data.formats[0];
+  }
+
   private startWatchMode(): void {
     const file = this.getActiveFileOrNotice();
     if (!file) return;
-    this.controller.start(file, this.lastUsedScope);
+    this.controller.start(file, this.data.lastUsedScope, this.activeFormat());
   }
 
   private async startWatchModeChooseSettings(): Promise<void> {
@@ -63,9 +95,13 @@ export default class ClipboardMonitorPlugin extends Plugin {
     const scope = await new ContentTypeScopeModal(this.app).open();
     if (!scope) return;
 
-    this.lastUsedScope = scope;
-    await this.saveData({ lastUsedScope: scope } satisfies ClipboardMonitorData);
-    this.controller.start(file, scope);
+    const format = await new TextFormatPickerModal(this.app, this.data.formats).open();
+    if (!format) return;
+
+    this.data.lastUsedScope = scope;
+    this.data.lastUsedFormatId = format.id;
+    await this.saveData(this.data);
+    this.controller.start(file, scope, format);
   }
 
   private getActiveFileOrNotice(): TFile | null {

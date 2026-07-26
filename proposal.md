@@ -145,8 +145,10 @@ OS clipboard
    `openspec/changes/content-type-scope/`)* — per-activation
    text/images/both selector, ContentRouter filtering, "last used"
    persistence.
-4. **Text formats** — managed format list in Settings (defaults + reset),
-   per-activation format picker, "last used" persistence for target/format.
+4. ✅ **Text formats** *(done — see
+   `openspec/changes/text-formats/`)* — managed format list in Settings
+   (defaults + reset), per-activation format picker, "last used"
+   persistence for target/format.
 5. **Images** — attachment save + link generation via Obsidian's own
    FileManager APIs.
 6. **Floating indicator** — optional always-on-top overlay window,

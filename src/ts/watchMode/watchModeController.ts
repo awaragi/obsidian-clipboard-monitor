@@ -1,6 +1,7 @@
 import { ClipboardWatcher, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
 import { CONTENT_TYPE_SCOPE_OPTIONS, shouldInsertText, type ContentTypeScope } from "./contentTypeScope";
 import { insertText } from "./insertText";
+import { renderFormat, type TextFormat } from "./textFormat";
 import type { PollableWatcher, WatchModeEventRef, WatchModeHost, WatchModeTarget } from "./types";
 
 function scopeLabel(scope: ContentTypeScope): string {
@@ -22,6 +23,7 @@ export class WatchModeController {
   private watcher: PollableWatcher | null = null;
   private target: WatchModeTarget | null = null;
   private scope: ContentTypeScope | null = null;
+  private format: TextFormat | null = null;
   private workspaceRefs: WatchModeEventRef[] = [];
   private vaultRefs: WatchModeEventRef[] = [];
 
@@ -40,11 +42,12 @@ export class WatchModeController {
     return this.target;
   }
 
-  start(target: WatchModeTarget, scope: ContentTypeScope): void {
+  start(target: WatchModeTarget, scope: ContentTypeScope, format: TextFormat): void {
     if (this.isRunning) this.stop();
 
     this.target = target;
     this.scope = scope;
+    this.format = format;
 
     this.watcher = this.createWatcher((text) => this.handleNewText(text));
     this.watcher.start();
@@ -65,6 +68,7 @@ export class WatchModeController {
     this.watcher = null;
     this.target = null;
     this.scope = null;
+    this.format = null;
 
     for (const ref of this.workspaceRefs) this.host.offWorkspace(ref);
     for (const ref of this.vaultRefs) this.host.offVault(ref);
@@ -75,14 +79,14 @@ export class WatchModeController {
   }
 
   private handleNewText(text: string): void {
-    if (!this.target || !this.scope) return;
+    if (!this.target || !this.scope || !this.format) return;
     if (!shouldInsertText(this.scope)) return;
     const editor = this.host.findMarkdownLeafForPath(this.target.path);
     if (!editor) return;
-    // Trailing newline so consecutive clipboard entries land on their own
-    // line instead of running together; revisit once Phase 4's format
-    // templates replace this with a user-selected {{content}} template.
-    insertText(editor, `${text}\n`);
+    // Trailing newline appended once, after the rendered template, so
+    // consecutive clipboard entries always land on their own line
+    // regardless of what the active format's template contains.
+    insertText(editor, `${renderFormat(this.format.template, text)}\n`);
   }
 
   private checkStillOpen(): void {

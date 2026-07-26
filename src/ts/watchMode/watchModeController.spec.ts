@@ -88,12 +88,14 @@ function fakeReader(initial = ""): ClipboardReader & { set(text: string): void }
 
 describe("WatchModeController", () => {
   const target = { path: "notes/Target.md", basename: "Target" };
+  const rawFormat = { id: "raw", name: "Raw", template: "{{content}}" };
+  const bulletFormat = { id: "bullet", name: "Bullet", template: "- {{content}}" };
 
   it("reports running state and target name on start", () => {
     const { host, onStatusChange } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
 
     expect(controller.isRunning).toBe(true);
     expect(onStatusChange).toHaveBeenCalledWith({
@@ -107,7 +109,7 @@ describe("WatchModeController", () => {
     const { host, onStatusChange, offWorkspace, offVault } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     controller.stop();
 
     expect(controller.isRunning).toBe(false);
@@ -135,7 +137,7 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     trigger("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
@@ -148,11 +150,38 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     trigger("first");
     trigger("second");
 
     expect(editor.text).toBe("first\nsecond\n");
+  });
+
+  it("renders the active format's template around inserted text", () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, trigger } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", bulletFormat);
+    trigger("pasted content");
+
+    expect(editor.text).toBe("- pasted content\n");
+  });
+
+  it("lands consecutive entries on their own line under a non-Raw format", () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, trigger } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", bulletFormat);
+    trigger("first");
+    trigger("second");
+
+    expect(editor.text).toBe("- first\n- second\n");
   });
 
   it("does not insert or throw when the target note isn't open in any pane", () => {
@@ -160,7 +189,7 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
 
     expect(() => trigger("pasted content")).not.toThrow();
   });
@@ -172,7 +201,7 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "text");
+    controller.start(target, "text", rawFormat);
     trigger("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
@@ -185,7 +214,7 @@ describe("WatchModeController", () => {
     const { createWatcher, trigger } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "image");
+    controller.start(target, "image", rawFormat);
     trigger("pasted content");
 
     expect(editor.text).toBe("");
@@ -195,7 +224,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerLayoutChange } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both"); // no editor registered -> "closed"
+    controller.start(target, "both", rawFormat); // no editor registered -> "closed"
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(false);
@@ -207,7 +236,7 @@ describe("WatchModeController", () => {
     editors.set(target.path, fakeEditor());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(true);
@@ -218,7 +247,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerDeleted } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     triggerDeleted(target.path);
 
     expect(controller.isRunning).toBe(false);
@@ -229,7 +258,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerDeleted } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     triggerDeleted("notes/Other.md");
 
     expect(controller.isRunning).toBe(true);
@@ -240,7 +269,7 @@ describe("WatchModeController", () => {
     const { host, notice, triggerRenamed } = fakeHost(fakeReader());
     const controller = new WatchModeController(host, 10_000);
 
-    controller.start(target, "both");
+    controller.start(target, "both", rawFormat);
     triggerRenamed(target.path);
 
     expect(controller.isRunning).toBe(false);
@@ -252,8 +281,8 @@ describe("WatchModeController", () => {
     const controller = new WatchModeController(host, 10_000);
     const other = { path: "notes/Other.md", basename: "Other" };
 
-    controller.start(target, "text");
-    controller.start(other, "image");
+    controller.start(target, "text", rawFormat);
+    controller.start(other, "image", rawFormat);
 
     expect(controller.currentTarget).toEqual(other);
     expect(onStatusChange.mock.calls.map((call) => call[0])).toEqual([
