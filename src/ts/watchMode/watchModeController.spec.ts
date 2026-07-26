@@ -1,18 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { WatchModeController } from "./watchModeController";
+import type { ClipboardContent } from "../clipboard/clipboardWatcher";
 import type { ClipboardReader } from "../clipboard/clipboardReader";
 import type { EditorLike, EditorPositionLike, PollableWatcher, WatchModeHost } from "./types";
 
-/** Captures the onNewText callback so tests can trigger clipboard "detections" directly, with no real timers. */
+/** Captures the onNewContent callback so tests can trigger clipboard "detections" directly, with no real timers. */
 function fakeWatcherFactory() {
-  let onNewText: (text: string) => void = () => {};
+  let onNewContent: (content: ClipboardContent) => void | Promise<void> = () => {};
   const watcher: PollableWatcher = { start: vi.fn(), stop: vi.fn() };
   return {
-    createWatcher: (cb: (text: string) => void) => {
-      onNewText = cb;
+    createWatcher: (cb: (content: ClipboardContent) => void) => {
+      onNewContent = cb;
       return watcher;
     },
-    trigger: (text: string) => onNewText(text),
+    trigger: (content: ClipboardContent) => onNewContent(content),
+    triggerText: (text: string) => onNewContent({ type: "text", text }),
+    triggerImage: (data: Buffer) => onNewContent({ type: "image", data }),
   };
 }
 
@@ -41,6 +44,7 @@ function fakeHost(reader: ClipboardReader) {
   const offVault = vi.fn();
   const notice = vi.fn();
   const onStatusChange = vi.fn();
+  const saveImageAttachment = vi.fn(async (_data: Buffer, _sourcePath: string) => "![[Pasted image.png]]");
 
   const host: WatchModeHost = {
     clipboardReader: reader,
@@ -61,6 +65,7 @@ function fakeHost(reader: ClipboardReader) {
     offVault,
     notice,
     onStatusChange,
+    saveImageAttachment,
   };
 
   return {
@@ -70,6 +75,7 @@ function fakeHost(reader: ClipboardReader) {
     offVault,
     notice,
     onStatusChange,
+    saveImageAttachment,
     triggerLayoutChange: () => layoutChangeCallbacks.forEach((cb) => cb()),
     triggerDeleted: (path: string) => deletedCallbacks.forEach((cb) => cb(path)),
     triggerRenamed: (oldPath: string) => renamedCallbacks.forEach((cb) => cb(oldPath)),
@@ -80,6 +86,7 @@ function fakeReader(initial = ""): ClipboardReader & { set(text: string): void }
   let text = initial;
   return {
     readText: () => text,
+    readImage: () => null,
     set: (next: string) => {
       text = next;
     },
@@ -90,6 +97,7 @@ describe("WatchModeController", () => {
   const target = { path: "notes/Target.md", basename: "Target" };
   const rawFormat = { id: "raw", name: "Raw", template: "{{content}}" };
   const bulletFormat = { id: "bullet", name: "Bullet", template: "- {{content}}" };
+  const timestampedFormat = { id: "timestamped", name: "Timestamped", template: "**{{time}}** — {{content}}" };
 
   it("reports running state and target name on start", () => {
     const { host, onStatusChange } = fakeHost(fakeReader());
@@ -102,6 +110,7 @@ describe("WatchModeController", () => {
       running: true,
       targetName: "Target",
       scopeLabel: "Both",
+      formatLabel: "Raw",
     });
   });
 
@@ -117,6 +126,7 @@ describe("WatchModeController", () => {
       running: false,
       targetName: null,
       scopeLabel: null,
+      formatLabel: null,
     });
     expect(offWorkspace).toHaveBeenCalledTimes(1);
     expect(offVault).toHaveBeenCalledTimes(2);
@@ -134,11 +144,11 @@ describe("WatchModeController", () => {
     const { host, editors } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "both", rawFormat);
-    trigger("pasted content");
+    triggerText("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
   });
@@ -147,12 +157,12 @@ describe("WatchModeController", () => {
     const { host, editors } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "both", rawFormat);
-    trigger("first");
-    trigger("second");
+    triggerText("first");
+    triggerText("second");
 
     expect(editor.text).toBe("first\nsecond\n");
   });
@@ -161,11 +171,11 @@ describe("WatchModeController", () => {
     const { host, editors } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "both", bulletFormat);
-    trigger("pasted content");
+    triggerText("pasted content");
 
     expect(editor.text).toBe("- pasted content\n");
   });
@@ -174,35 +184,35 @@ describe("WatchModeController", () => {
     const { host, editors } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "both", bulletFormat);
-    trigger("first");
-    trigger("second");
+    triggerText("first");
+    triggerText("second");
 
     expect(editor.text).toBe("- first\n- second\n");
   });
 
   it("does not insert or throw when the target note isn't open in any pane", () => {
     const { host } = fakeHost(fakeReader()); // no editors registered
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "both", rawFormat);
 
-    expect(() => trigger("pasted content")).not.toThrow();
+    expect(() => triggerText("pasted content")).not.toThrow();
   });
 
   it("inserts text when scope is 'text'", () => {
     const { host, editors } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "text", rawFormat);
-    trigger("pasted content");
+    triggerText("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
   });
@@ -211,11 +221,102 @@ describe("WatchModeController", () => {
     const { host, editors } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
-    const { createWatcher, trigger } = fakeWatcherFactory();
+    const { createWatcher, triggerText } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
     controller.start(target, "image", rawFormat);
-    trigger("pasted content");
+    triggerText("pasted content");
+
+    expect(editor.text).toBe("");
+  });
+
+  it("saves and inserts a link for newly detected image content under scope 'both'", async () => {
+    const { host, editors, saveImageAttachment } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+    const data = Buffer.from([1, 2, 3]);
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", rawFormat);
+    await triggerImage(data);
+
+    expect(saveImageAttachment).toHaveBeenCalledWith(data, target.path);
+    expect(editor.text).toBe("![[Pasted image.png]]\n");
+  });
+
+  it("saves and inserts a link for newly detected image content under scope 'image'", async () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "image", rawFormat);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(editor.text).toBe("![[Pasted image.png]]\n");
+  });
+
+  it("applies the active format to an inserted image link", async () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", bulletFormat);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(editor.text).toBe("- ![[Pasted image.png]]\n");
+  });
+
+  it("substitutes {{time}} for an inserted image link under the Timestamped format", async () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", timestampedFormat);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(editor.text).toMatch(/^\*\*\d{2}:\d{2}\*\* — !\[\[Pasted image\.png\]\]\n$/);
+  });
+
+  it("blocks image insertion when scope is 'text'", async () => {
+    const { host, editors, saveImageAttachment } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "text", rawFormat);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(saveImageAttachment).not.toHaveBeenCalled();
+    expect(editor.text).toBe("");
+  });
+
+  it("does not insert the link if the target changes while the save is in flight", async () => {
+    const { host, editors } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    let resolveSave: (link: string) => void = () => {};
+    host.saveImageAttachment = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveSave = resolve;
+        })
+    );
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", rawFormat);
+    const pending = triggerImage(Buffer.from([1, 2, 3]));
+    controller.stop(); // target changes to null while the save is still pending
+    resolveSave("![[Pasted image.png]]");
+    await pending;
 
     expect(editor.text).toBe("");
   });
@@ -286,9 +387,9 @@ describe("WatchModeController", () => {
 
     expect(controller.currentTarget).toEqual(other);
     expect(onStatusChange.mock.calls.map((call) => call[0])).toEqual([
-      { running: true, targetName: "Target", scopeLabel: "Text only" },
-      { running: false, targetName: null, scopeLabel: null },
-      { running: true, targetName: "Other", scopeLabel: "Images only" },
+      { running: true, targetName: "Target", scopeLabel: "Text only", formatLabel: "Raw" },
+      { running: false, targetName: null, scopeLabel: null, formatLabel: null },
+      { running: true, targetName: "Other", scopeLabel: "Images only", formatLabel: "Raw" },
     ]);
   });
 });

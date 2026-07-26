@@ -1,5 +1,10 @@
-import { ClipboardWatcher, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
-import { CONTENT_TYPE_SCOPE_OPTIONS, shouldInsertText, type ContentTypeScope } from "./contentTypeScope";
+import { ClipboardWatcher, type ClipboardContent, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
+import {
+  CONTENT_TYPE_SCOPE_OPTIONS,
+  shouldInsertImage,
+  shouldInsertText,
+  type ContentTypeScope,
+} from "./contentTypeScope";
 import { insertText } from "./insertText";
 import { renderFormat, type TextFormat } from "./textFormat";
 import type { PollableWatcher, WatchModeEventRef, WatchModeHost, WatchModeTarget } from "./types";
@@ -10,7 +15,7 @@ function scopeLabel(scope: ContentTypeScope): string {
 
 const DEFAULT_POLL_INTERVAL_MS = 400;
 
-type WatcherFactory = (onNewText: ClipboardWatcherCallback) => PollableWatcher;
+type WatcherFactory = (onNewContent: ClipboardWatcherCallback) => PollableWatcher;
 
 /**
  * Orchestrates a single watch-mode session: starts/stops the clipboard
@@ -30,8 +35,8 @@ export class WatchModeController {
   constructor(
     private readonly host: WatchModeHost,
     private readonly pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
-    private readonly createWatcher: WatcherFactory = (onNewText) =>
-      new ClipboardWatcher(host.clipboardReader, onNewText, pollIntervalMs)
+    private readonly createWatcher: WatcherFactory = (onNewContent) =>
+      new ClipboardWatcher(host.clipboardReader, onNewContent, pollIntervalMs)
   ) {}
 
   get isRunning(): boolean {
@@ -49,7 +54,7 @@ export class WatchModeController {
     this.scope = scope;
     this.format = format;
 
-    this.watcher = this.createWatcher((text) => this.handleNewText(text));
+    this.watcher = this.createWatcher((content) => this.handleNewContent(content));
     this.watcher.start();
 
     this.workspaceRefs.push(this.host.onLayoutChange(() => this.checkStillOpen()));
@@ -58,7 +63,12 @@ export class WatchModeController {
       this.host.onFileRenamed((oldPath) => this.checkRenamed(oldPath))
     );
 
-    this.host.onStatusChange({ running: true, targetName: target.basename, scopeLabel: scopeLabel(scope) });
+    this.host.onStatusChange({
+      running: true,
+      targetName: target.basename,
+      scopeLabel: scopeLabel(scope),
+      formatLabel: format.name,
+    });
   }
 
   stop(): void {
@@ -75,18 +85,34 @@ export class WatchModeController {
     this.workspaceRefs = [];
     this.vaultRefs = [];
 
-    this.host.onStatusChange({ running: false, targetName: null, scopeLabel: null });
+    this.host.onStatusChange({ running: false, targetName: null, scopeLabel: null, formatLabel: null });
   }
 
-  private handleNewText(text: string): void {
+  private async handleNewContent(content: ClipboardContent): Promise<void> {
     if (!this.target || !this.scope || !this.format) return;
-    if (!shouldInsertText(this.scope)) return;
-    const editor = this.host.findMarkdownLeafForPath(this.target.path);
+
+    if (content.type === "text") {
+      if (!shouldInsertText(this.scope)) return;
+      const editor = this.host.findMarkdownLeafForPath(this.target.path);
+      if (!editor) return;
+      // Trailing newline appended once, after the rendered template, so
+      // consecutive clipboard entries always land on their own line
+      // regardless of what the active format's template contains.
+      insertText(editor, `${renderFormat(this.format.template, content.text)}\n`);
+      return;
+    }
+
+    if (!shouldInsertImage(this.scope)) return;
+    const target = this.target;
+    const format = this.format;
+    const link = await this.host.saveImageAttachment(content.data, target.path);
+    // The session may have stopped or moved to a different target while
+    // the save was in flight; discard the link rather than insert it
+    // somewhere the user no longer expects it.
+    if (this.target !== target) return;
+    const editor = this.host.findMarkdownLeafForPath(target.path);
     if (!editor) return;
-    // Trailing newline appended once, after the rendered template, so
-    // consecutive clipboard entries always land on their own line
-    // regardless of what the active format's template contains.
-    insertText(editor, `${renderFormat(this.format.template, text)}\n`);
+    insertText(editor, `${renderFormat(format.template, link)}\n`);
   }
 
   private checkStillOpen(): void {

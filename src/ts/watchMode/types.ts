@@ -16,6 +16,7 @@ export interface WatchModeStatus {
   running: boolean;
   targetName: string | null;
   scopeLabel: string | null;
+  formatLabel: string | null;
 }
 
 export interface WatchModeTarget {
@@ -52,4 +53,7 @@ export interface WatchModeHost {
 
   notice(message: string): void;
   onStatusChange(status: WatchModeStatus): void;
+
+  /** Saves image data as a vault attachment and returns the generated link to insert. */
+  saveImageAttachment(data: Buffer, sourcePath: string): Promise<string>;
 }

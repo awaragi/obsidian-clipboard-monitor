@@ -43,6 +43,37 @@ describe("createDefaultTextFormats", () => {
   });
 });
 
+describe("default template newlines", () => {
+  function defaultByName(name: string): TextFormat {
+    return createDefaultTextFormats().find((format) => format.name === name)!;
+  }
+
+  it("Raw starts with a leading newline", () => {
+    expect(renderFormat(defaultByName("Raw").template, "item")).toBe("\nitem");
+  });
+
+  it("Bullet starts with a leading newline", () => {
+    expect(renderFormat(defaultByName("Bullet").template, "item")).toBe("\n- item");
+  });
+
+  it("Timestamped starts with a leading newline", () => {
+    const now = new Date(2026, 0, 1, 9, 3);
+    expect(renderFormat(defaultByName("Timestamped").template, "item", now)).toBe("\n**09:03** — item");
+  });
+
+  it("Callout starts with a leading newline", () => {
+    expect(renderFormat(defaultByName("Callout").template, "item")).toBe("\n> [!note]\n> item");
+  });
+
+  it("consecutive Callout entries render as two separate callouts, not one merged blockquote", () => {
+    const template = defaultByName("Callout").template;
+    // Mirrors how WatchModeController inserts each rendered entry followed by exactly one trailing newline.
+    const entry1 = `${renderFormat(template, "first")}\n`;
+    const entry2 = `${renderFormat(template, "second")}\n`;
+    expect(entry1 + entry2).toBe("\n> [!note]\n> first\n\n> [!note]\n> second\n");
+  });
+});
+
 describe("resolveLastUsedFormatId", () => {
   const formats: TextFormat[] = [
     { id: "a", name: "Raw", template: "{{content}}" },

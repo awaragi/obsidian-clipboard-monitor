@@ -1,20 +1,29 @@
 import type { ClipboardReader } from "./clipboardReader";
-import { hashText } from "./hash";
+import { hashBuffer, hashText } from "./hash";
 
-export type ClipboardWatcherCallback = (text: string) => void;
+export type ClipboardContent = { type: "text"; text: string } | { type: "image"; data: Buffer };
+
+export type ClipboardWatcherCallback = (content: ClipboardContent) => void;
+
+type LastContent = { type: "text" | "image"; hash: string };
 
 /**
  * Polls a ClipboardReader on an interval and invokes the callback only when
- * the read text's hash differs from the last-seen hash. `pollOnce` is public
- * so tests can drive the dedupe logic deterministically without real timers.
+ * newly-read content's (type, hash) pair differs from the single last-seen
+ * one — so switching from text to an image and back to that same text is
+ * still detected as new, not just repeated identical content within the
+ * same type. When both an image and text are present in the same tick, the
+ * image takes priority and text is not checked that tick, so a single
+ * clipboard change never produces two insertions. `pollOnce` is public so
+ * tests can drive the dedupe logic deterministically without real timers.
  */
 export class ClipboardWatcher {
-  private lastHash: string | null = null;
+  private lastContent: LastContent | null = null;
   private intervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly reader: ClipboardReader,
-    private readonly onNewText: ClipboardWatcherCallback,
+    private readonly onNewContent: ClipboardWatcherCallback,
     private readonly intervalMs = 400
   ) {}
 
@@ -23,14 +32,24 @@ export class ClipboardWatcher {
   }
 
   pollOnce(): void {
+    const image = this.reader.readImage();
+    if (image) {
+      const hash = hashBuffer(image);
+      if (this.isNew("image", hash)) {
+        this.lastContent = { type: "image", hash };
+        this.onNewContent({ type: "image", data: image });
+      }
+      return;
+    }
+
     const text = this.reader.readText();
     if (!text) return;
 
     const hash = hashText(text);
-    if (hash === this.lastHash) return;
-
-    this.lastHash = hash;
-    this.onNewText(text);
+    if (this.isNew("text", hash)) {
+      this.lastContent = { type: "text", hash };
+      this.onNewContent({ type: "text", text });
+    }
   }
 
   start(): void {
@@ -38,8 +57,13 @@ export class ClipboardWatcher {
 
     // Prime dedupe state with whatever is already on the clipboard so
     // starting watch mode doesn't immediately re-insert stale content.
-    const current = this.reader.readText();
-    this.lastHash = current ? hashText(current) : null;
+    const currentImage = this.reader.readImage();
+    if (currentImage) {
+      this.lastContent = { type: "image", hash: hashBuffer(currentImage) };
+    } else {
+      const currentText = this.reader.readText();
+      this.lastContent = currentText ? { type: "text", hash: hashText(currentText) } : null;
+    }
 
     this.intervalId = setInterval(() => this.pollOnce(), this.intervalMs);
   }
@@ -49,6 +73,10 @@ export class ClipboardWatcher {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    this.lastHash = null;
+    this.lastContent = null;
+  }
+
+  private isNew(type: "text" | "image", hash: string): boolean {
+    return !this.lastContent || this.lastContent.type !== type || this.lastContent.hash !== hash;
   }
 }

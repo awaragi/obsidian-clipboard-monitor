@@ -66,10 +66,16 @@ output is indistinguishable from a normal manual paste. Desktop only.
 - **"Start watch mode"** — instant, no prompt. Active note = target.
   Reuses last-used insertion format and last-used content-type scope.
   Fast path for repeat use.
-- **"Start watch mode (choose settings)"** — quick prompt: confirm/change
-  target (defaults to active note), pick insertion format from the
-  managed format list, pick content-type scope (text / images / both).
-  Whatever is chosen becomes the new "last used" for next time.
+- **"Start watch mode (choose settings)"** — opens a single
+  `WatchModeSettingsModal` showing the target note (read-only info line,
+  defaults to active note), a content-type scope dropdown, and a text
+  format dropdown, both pre-filled with last-used values, plus explicit
+  **Watch**/**Cancel** buttons. Only **Watch** confirms; Cancel, Escape,
+  or an outside click resolve to no-op with no state change. Whatever is
+  confirmed via **Watch** becomes the new "last used" for next time.
+  *(Originally two sequential modals — replaced because their silent
+  resolve-on-close contract could fail without error, see
+  `openspec/changes/watch-settings-modal/`.)*
 - **"Stop watch mode"** — manual stop, in addition to the automatic
   closed/deleted stop condition.
 
@@ -88,8 +94,12 @@ Shipped defaults (suggested):
 
 Users can add their own entries (e.g. `- [ ] {{content}}` for tasks,
 `## {{content}}` for headings) — same mechanism, not a separate "custom"
-code path. Format selection only applies to text; irrelevant when scope
-is images-only.
+code path. Format selection applies to **both** text and images: the
+active format's template is rendered with the copied text, or with an
+image's generated embed link, substituted for `{{content}}` — e.g. under
+the Bullet format, an inserted image becomes `- ![[Pasted image
+....png]]`. *(Revised from the original draft, which scoped format
+selection to text only.)*
 
 ### 4.4 Images
 No separate image settings. Save via `vault.createBinary()`, resolve path
@@ -100,8 +110,9 @@ configured in Obsidian's own Files & Links settings.
 
 ### 4.5 Status / visibility
 - **Status bar item** — baseline always-present indicator: on/off state,
-  target note name, active content-type scope. Lives inside Obsidian's
-  window.
+  target note name, active content-type scope, and active text format
+  name (e.g. "Clipboard Monitor: Meeting Notes — Text only — Callout").
+  Lives inside Obsidian's window.
 - **Floating always-on-top indicator (optional, off by default, plugin
   setting to enable)** — separate frameless `alwaysOnTop` Electron
   `BrowserWindow`, small corner overlay, shows on/off state and a brief
@@ -129,7 +140,8 @@ OS clipboard
                      then size-cap filter)
   -> text: apply selected format template -> editor.replaceRange()
   -> image: vault.createBinary() -> getAvailablePathForAttachment()
-            -> generateMarkdownLink() -> editor.replaceRange()
+            -> generateMarkdownLink() -> apply selected format template
+            -> editor.replaceRange()
   -> target note closed/deleted -> stop watch mode + alert
 ```
 
@@ -149,20 +161,51 @@ OS clipboard
    `openspec/changes/text-formats/`)* — managed format list in Settings
    (defaults + reset), per-activation format picker, "last used"
    persistence for target/format.
-5. **Images** — attachment save + link generation via Obsidian's own
-   FileManager APIs.
+5. ✅ **Images** *(done — see `openspec/changes/images/`)* — clipboard
+   image detection with dedupe and image-priority-over-text polling,
+   content-type scope gate, attachment save + link generation via
+   Obsidian's own FileManager APIs, insertion at the target note's
+   cursor through the active text format.
 6. **Floating indicator** — optional always-on-top overlay window,
    settings toggle.
-7. **Polish** — size cap, docs, release prep.
+7. **Performance** - consider alternatives to hashing such as size and other metadata so that we do not hash large images. 
+8. **Polish** — size cap, docs, release prep.
 
-## 6. Resolved Decisions Log
+## 6. Fixes & Refinements
+
+Bug fixes and small refinements applied after their originating phase
+landed, not part of the phase sequence above:
+
+- ✅ **Format defaults & image embed fix** *(see
+  `openspec/changes/format-defaults-and-image-embed-fix/`)* — shipped
+  default text-format templates (Raw, Bullet, Timestamped, Callout) now
+  start with a leading `\n` so each insertion begins on its own fresh
+  line instead of gluing onto wherever the cursor was, and so consecutive
+  Callout captures render as separate blockquotes instead of merging
+  into one (CommonMark needs a blank line between them). Saved image
+  attachments are now linked with a `!` embed prefix instead of a plain
+  wikilink, matching Obsidian's own manual-paste output.
+- ✅ **Watch settings modal** *(see
+  `openspec/changes/watch-settings-modal/`)* — "Start watch mode (choose
+  settings)" was broken: its two sequential modals (`ContentTypeScopeModal`,
+  `TextFormatPickerModal`) could silently fail to resolve a choice,
+  producing no error and no watch mode start. Replaced with a single
+  `WatchModeSettingsModal` (target display + scope/format dropdowns +
+  explicit Watch/Cancel buttons) as the intended home for all future
+  per-activation settings.
+- ✅ **Status bar format label** *(see
+  `openspec/changes/status-bar-format-label/`)* — status bar now also
+  shows the active text format's name alongside target note and
+  content-type scope.
+
+## 7. Resolved Decisions Log
 - Background capture: **true background**, works regardless of app focus.
 - Mobile: **unsupported**, `isDesktopOnly: true`.
 - Target note: **pinned on activation = active note**, no picker.
 - Note closed/deleted: **hard stop + alert**, no append fallback.
 - Dedupe: **hash-based, no cooldown**, immediate insert.
 - Insertion format: **managed list in Settings**, per-activation select
-  only, remembered as last-used.
+  only, remembered as last-used, **applies to both text and images**.
 - Content-type scope: **per-activation (text / images / both)**,
   default **both**, remembered as last-used.
 - Image handling: **no plugin-side settings**, defers entirely to

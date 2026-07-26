@@ -2,11 +2,10 @@ import { Notice, Plugin, TFile } from "obsidian";
 import { ElectronClipboardReader } from "./clipboard/clipboardReader";
 import { ClipboardMonitorSettingTab, type FormatListHost } from "./settings/clipboardMonitorSettingTab";
 import { DEFAULT_CONTENT_TYPE_SCOPE, type ContentTypeScope } from "./watchMode/contentTypeScope";
-import { ContentTypeScopeModal } from "./watchMode/contentTypeScopeModal";
 import { createObsidianHost } from "./watchMode/obsidianHost";
 import { createDefaultTextFormats, resolveLastUsedFormatId, type TextFormat } from "./watchMode/textFormat";
-import { TextFormatPickerModal } from "./watchMode/textFormatPickerModal";
 import { WatchModeController } from "./watchMode/watchModeController";
+import { WatchModeSettingsModal } from "./watchMode/watchModeSettingsModal";
 import type { WatchModeStatus } from "./watchMode/types";
 
 interface ClipboardMonitorData {
@@ -24,7 +23,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
     this.data = await this.loadClipboardMonitorData();
 
     this.statusBarItem = this.addStatusBarItem();
-    this.renderStatus({ running: false, targetName: null, scopeLabel: null });
+    this.renderStatus({ running: false, targetName: null, scopeLabel: null, formatLabel: null });
 
     const host = createObsidianHost(this.app, new ElectronClipboardReader(), (status) =>
       this.renderStatus(status)
@@ -92,16 +91,19 @@ export default class ClipboardMonitorPlugin extends Plugin {
     const file = this.getActiveFileOrNotice();
     if (!file) return;
 
-    const scope = await new ContentTypeScopeModal(this.app).open();
-    if (!scope) return;
+    const choice = await new WatchModeSettingsModal(
+      this.app,
+      file,
+      this.data.formats,
+      this.data.lastUsedScope,
+      this.data.lastUsedFormatId
+    ).open();
+    if (!choice) return;
 
-    const format = await new TextFormatPickerModal(this.app, this.data.formats).open();
-    if (!format) return;
-
-    this.data.lastUsedScope = scope;
-    this.data.lastUsedFormatId = format.id;
+    this.data.lastUsedScope = choice.scope;
+    this.data.lastUsedFormatId = choice.format.id;
     await this.saveData(this.data);
-    this.controller.start(file, scope, format);
+    this.controller.start(file, choice.scope, choice.format);
   }
 
   private getActiveFileOrNotice(): TFile | null {
@@ -115,7 +117,9 @@ export default class ClipboardMonitorPlugin extends Plugin {
 
   private renderStatus(status: WatchModeStatus): void {
     this.statusBarItem.setText(
-      status.running ? `Clipboard Monitor: ${status.targetName} — ${status.scopeLabel}` : "Clipboard Monitor: off"
+      status.running
+        ? `Clipboard Monitor: ${status.targetName} — ${status.scopeLabel} — ${status.formatLabel}`
+        : "Clipboard Monitor: off"
     );
   }
 }

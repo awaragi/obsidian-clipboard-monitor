@@ -29,10 +29,10 @@ replace every `{{content}}` token with that content, and every
 - **THEN** the rendered result is `"**14:05** — note"`
 
 ### Requirement: Inserted text uses the active format
-When watch mode inserts newly detected clipboard text (per the
-content-type scope gate), it SHALL insert the active format's template
-rendered with that text, followed by exactly one trailing newline,
-rather than the raw copied text.
+Watch mode SHALL insert newly detected clipboard text (per the
+content-type scope gate) as the active format's template rendered with
+that text, followed by exactly one trailing newline, rather than the
+raw copied text.
 
 #### Scenario: Active format is applied to inserted text
 - **WHEN** watch mode is running with the Bullet format active and new

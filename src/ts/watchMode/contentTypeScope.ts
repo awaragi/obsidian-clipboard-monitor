@@ -12,3 +12,8 @@ export const CONTENT_TYPE_SCOPE_OPTIONS: { value: ContentTypeScope; label: strin
 export function shouldInsertText(scope: ContentTypeScope): boolean {
   return scope !== "image";
 }
+
+/** Whether newly detected clipboard image content should be inserted under the given scope. */
+export function shouldInsertImage(scope: ContentTypeScope): boolean {
+  return scope !== "text";
+}

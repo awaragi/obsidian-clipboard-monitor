@@ -5,10 +5,10 @@ export interface TextFormat {
 }
 
 const DEFAULT_TEXT_FORMAT_DEFS: { name: string; template: string }[] = [
-  { name: "Raw", template: "{{content}}" },
-  { name: "Bullet", template: "- {{content}}" },
-  { name: "Timestamped", template: "**{{time}}** — {{content}}" },
-  { name: "Callout", template: "> [!note]\n> {{content}}" },
+  { name: "Raw", template: "\n{{content}}" },
+  { name: "Bullet", template: "\n- {{content}}" },
+  { name: "Timestamped", template: "\n**{{time}}** — {{content}}" },
+  { name: "Callout", template: "\n> [!note]\n> {{content}}" },
 ];
 
 /** The four formats the plugin ships with, fixed for reference (e.g. display in docs/tests). */
