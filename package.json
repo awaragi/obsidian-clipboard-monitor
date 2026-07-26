@@ -1,0 +1,35 @@
+{
+  "name": "obsidian-clipboard-monitor",
+  "version": "0.1.0",
+  "description": "Obsidian plugin: watch the clipboard and insert new content into a pinned note",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "deploy": "node scripts/deploy.mjs",
+    "dev:deploy": "npm run dev && npm run deploy",
+    "dev:deploy:watch": "watch 'npm run dev:deploy' src",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/ts",
+    "format": "prettier --write src/ts",
+    "test": "vitest run",
+    "release:prepare": "node scripts/version.mjs",
+    "release": "node scripts/publish.mjs"
+  },
+  "keywords": [],
+  "author": "Pierre Awaragi",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.5.0",
+    "obsidian": "latest",
+    "prettier": "^3.8.4",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.9",
+    "watch": "^0.13.0"
+  }
+}
