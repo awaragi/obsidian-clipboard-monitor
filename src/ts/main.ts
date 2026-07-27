@@ -2,6 +2,7 @@ import { Notice, Plugin, TFile } from "obsidian";
 import { ElectronClipboardReader } from "./clipboard/clipboardReader";
 import { ClipboardMonitorSettingTab, type FormatListHost } from "./settings/clipboardMonitorSettingTab";
 import { DEFAULT_CONTENT_TYPE_SCOPE, type ContentTypeScope } from "./watchMode/contentTypeScope";
+import { createConsoleLogger } from "./logger";
 import { createObsidianHost } from "./watchMode/obsidianHost";
 import { DEFAULT_POLLING_FREQUENCY, pollingFrequencyToMs, type PollingFrequency } from "./watchMode/pollingFrequency";
 import { createDefaultTextFormats, resolveLastUsedFormatId, type TextFormat } from "./watchMode/textFormat";
@@ -15,6 +16,7 @@ interface ClipboardMonitorData {
   lastUsedFormatId: string;
   clearClipboardAfterImageInsert: boolean;
   pollingFrequency: PollingFrequency;
+  debugLoggingEnabled: boolean;
 }
 
 export default class ClipboardMonitorPlugin extends Plugin {
@@ -31,7 +33,10 @@ export default class ClipboardMonitorPlugin extends Plugin {
     const host = createObsidianHost(this.app, new ElectronClipboardReader(), (status) =>
       this.renderStatus(status)
     );
-    this.controller = new WatchModeController(host);
+    const logger = createConsoleLogger(() => this.data.debugLoggingEnabled);
+    // Passing `undefined` for the watcher factory keeps the default factory
+    // (which needs `logger` internally) while still supplying `logger` here.
+    this.controller = new WatchModeController(host, undefined, logger);
 
     const formatListHost: FormatListHost = {
       getFormats: () => this.data.formats,
@@ -41,6 +46,8 @@ export default class ClipboardMonitorPlugin extends Plugin {
       setClearClipboardAfterImageInsert: (value) => this.persistClearClipboardAfterImageInsert(value),
       getPollingFrequency: () => this.data.pollingFrequency,
       setPollingFrequency: (value) => this.persistPollingFrequency(value),
+      getDebugLoggingEnabled: () => this.data.debugLoggingEnabled,
+      setDebugLoggingEnabled: (value) => this.persistDebugLoggingEnabled(value),
     };
     this.addSettingTab(new ClipboardMonitorSettingTab(this.app, this, formatListHost));
 
@@ -76,6 +83,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
       lastUsedFormatId: resolveLastUsedFormatId(formats, loaded?.lastUsedFormatId),
       clearClipboardAfterImageInsert: loaded?.clearClipboardAfterImageInsert ?? false,
       pollingFrequency: loaded?.pollingFrequency ?? DEFAULT_POLLING_FREQUENCY,
+      debugLoggingEnabled: loaded?.debugLoggingEnabled ?? false,
     };
   }
 
@@ -92,6 +100,11 @@ export default class ClipboardMonitorPlugin extends Plugin {
 
   private async persistPollingFrequency(value: PollingFrequency): Promise<void> {
     this.data.pollingFrequency = value;
+    await this.saveData(this.data);
+  }
+
+  private async persistDebugLoggingEnabled(value: boolean): Promise<void> {
+    this.data.debugLoggingEnabled = value;
     await this.saveData(this.data);
   }
 

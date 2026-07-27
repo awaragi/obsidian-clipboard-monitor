@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { ClipboardWatcher, type ClipboardContent } from "./clipboardWatcher";
 import type { ClipboardImage, ClipboardReader } from "./clipboardReader";
+import type { Logger } from "../logger";
 
 function img(bitmap: Buffer, width = 1, height = 1): ClipboardImage {
   return { width, height, bitmap };
+}
+
+function fakeLogger(): Logger {
+  return { debug: vi.fn(), info: vi.fn() };
 }
 
 function fakeReader(
@@ -212,5 +217,66 @@ describe("ClipboardWatcher", () => {
     watcher.stop();
 
     expect(onNewContent).not.toHaveBeenCalled();
+  });
+
+  it("logs a debug message when new text is detected", () => {
+    const reader = fakeReader("hello");
+    const logger = fakeLogger();
+    const watcher = new ClipboardWatcher(reader, vi.fn(), 10_000, logger);
+
+    watcher.pollOnce();
+
+    expect(logger.debug).toHaveBeenCalledWith("poll: new text detected", { length: 5 });
+  });
+
+  it("logs a debug message when duplicate text is skipped", () => {
+    const reader = fakeReader("hello");
+    const logger = fakeLogger();
+    const watcher = new ClipboardWatcher(reader, vi.fn(), 10_000, logger);
+
+    watcher.pollOnce();
+    watcher.pollOnce();
+
+    expect(logger.debug).toHaveBeenCalledWith("poll: duplicate text skipped");
+  });
+
+  it("logs a debug message when a poll finds no clipboard content", () => {
+    const reader = fakeReader("");
+    const logger = fakeLogger();
+    const watcher = new ClipboardWatcher(reader, vi.fn(), 10_000, logger);
+
+    watcher.pollOnce();
+
+    expect(logger.debug).toHaveBeenCalledWith("poll: no clipboard content");
+  });
+
+  it("logs a debug message when a new image is detected", () => {
+    const reader = fakeReader();
+    reader.setImage(img(Buffer.from([1, 2, 3])));
+    const logger = fakeLogger();
+    const watcher = new ClipboardWatcher(reader, vi.fn(), 10_000, logger);
+
+    watcher.pollOnce();
+
+    expect(logger.debug).toHaveBeenCalledWith("poll: new image detected", { width: 1, height: 1 });
+  });
+
+  it("logs a debug message when a duplicate image is skipped", () => {
+    const reader = fakeReader();
+    reader.setImage(img(Buffer.from([1, 2, 3])));
+    const logger = fakeLogger();
+    const watcher = new ClipboardWatcher(reader, vi.fn(), 10_000, logger);
+
+    watcher.pollOnce();
+    watcher.pollOnce();
+
+    expect(logger.debug).toHaveBeenCalledWith("poll: duplicate image skipped");
+  });
+
+  it("produces no log output at all when no logger is provided (defaults to a no-op)", () => {
+    const reader = fakeReader("hello");
+    const watcher = new ClipboardWatcher(reader, vi.fn());
+
+    expect(() => watcher.pollOnce()).not.toThrow();
   });
 });

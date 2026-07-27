@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { WatchModeController } from "./watchModeController";
 import type { ClipboardContent } from "../clipboard/clipboardWatcher";
 import type { ClipboardImage, ClipboardReader } from "../clipboard/clipboardReader";
+import type { Logger } from "../logger";
 import type { EditorLike, EditorPositionLike, PollableWatcher, WatchModeHost } from "./types";
+
+function fakeLogger(): Logger {
+  return { debug: vi.fn(), info: vi.fn() };
+}
 
 /** Real timers are never advanced in these tests, but the default watcher factory still schedules a real setInterval, so this keeps it far out of the way. */
 const TEST_POLL_INTERVAL_MS = 10_000;
@@ -476,5 +481,83 @@ describe("WatchModeController", () => {
     controller.start(target, "both", rawFormat, false, 500);
 
     expect(intervals).toEqual([1000, 500]);
+  });
+
+  it("logs an info message on start with target, scope, format, and poll interval", () => {
+    const { host } = fakeHost(fakeReader());
+    const { createWatcher } = fakeWatcherFactory();
+    const logger = fakeLogger();
+    const controller = new WatchModeController(host, createWatcher, logger);
+
+    controller.start(target, "text", bulletFormat, false, TEST_POLL_INTERVAL_MS);
+
+    expect(logger.info).toHaveBeenCalledWith("watch mode started", {
+      target: "Target",
+      scope: "Text only",
+      format: "Bullet",
+      pollIntervalMs: TEST_POLL_INTERVAL_MS,
+    });
+  });
+
+  it("logs an info message on manual stop with the target and a reason", () => {
+    const { host } = fakeHost(fakeReader());
+    const { createWatcher } = fakeWatcherFactory();
+    const logger = fakeLogger();
+    const controller = new WatchModeController(host, createWatcher, logger);
+
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    controller.stop();
+
+    expect(logger.info).toHaveBeenCalledWith("watch mode stopped", { target: "Target", reason: "manual stop" });
+  });
+
+  it("logs an info message with the specific reason on auto-stop", () => {
+    const { host, triggerDeleted } = fakeHost(fakeReader());
+    const { createWatcher } = fakeWatcherFactory();
+    const logger = fakeLogger();
+    const controller = new WatchModeController(host, createWatcher, logger);
+
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    triggerDeleted(target.path);
+
+    expect(logger.info).toHaveBeenCalledWith("watch mode stopped", { target: "Target", reason: "note deleted" });
+  });
+
+  it("logs an info message when text is inserted", () => {
+    const { host, editors } = fakeHost(fakeReader());
+    editors.set(target.path, fakeEditor());
+    const { createWatcher, triggerText } = fakeWatcherFactory();
+    const logger = fakeLogger();
+    const controller = new WatchModeController(host, createWatcher, logger);
+
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    triggerText("pasted content");
+
+    expect(logger.info).toHaveBeenCalledWith("text inserted", { format: "Raw", length: "pasted content".length });
+  });
+
+  it("logs info messages when an image is saved and inserted", async () => {
+    const { host, editors } = fakeHost(fakeReader());
+    editors.set(target.path, fakeEditor());
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+    const logger = fakeLogger();
+    const controller = new WatchModeController(host, createWatcher, logger);
+
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(logger.info).toHaveBeenCalledWith("image attachment saved", { link: "![[Pasted image.png]]" });
+    expect(logger.info).toHaveBeenCalledWith("image inserted", { format: "Raw", link: "![[Pasted image.png]]" });
+  });
+
+  it("produces no log output at all when no logger is provided (defaults to a no-op)", () => {
+    const { host, editors } = fakeHost(fakeReader());
+    editors.set(target.path, fakeEditor());
+    const { createWatcher, triggerText } = fakeWatcherFactory();
+    const controller = new WatchModeController(host, createWatcher);
+
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+
+    expect(() => triggerText("pasted content")).not.toThrow();
   });
 });

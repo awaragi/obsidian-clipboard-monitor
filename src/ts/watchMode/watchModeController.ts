@@ -1,4 +1,5 @@
 import { ClipboardWatcher, type ClipboardContent, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
+import { noopLogger, type Logger } from "../logger";
 import {
   CONTENT_TYPE_SCOPE_OPTIONS,
   shouldInsertImage,
@@ -30,12 +31,17 @@ export class WatchModeController {
   private clearClipboardAfterImageInsert = false;
   private workspaceRefs: WatchModeEventRef[] = [];
   private vaultRefs: WatchModeEventRef[] = [];
+  private readonly createWatcher: WatcherFactory;
 
   constructor(
     private readonly host: WatchModeHost,
-    private readonly createWatcher: WatcherFactory = (onNewContent, pollIntervalMs) =>
-      new ClipboardWatcher(host.clipboardReader, onNewContent, pollIntervalMs)
-  ) {}
+    createWatcher?: WatcherFactory,
+    private readonly logger: Logger = noopLogger
+  ) {
+    this.createWatcher =
+      createWatcher ??
+      ((onNewContent, pollIntervalMs) => new ClipboardWatcher(host.clipboardReader, onNewContent, pollIntervalMs, this.logger));
+  }
 
   get isRunning(): boolean {
     return this.watcher !== null;
@@ -52,7 +58,7 @@ export class WatchModeController {
     clearClipboardAfterImageInsert: boolean,
     pollIntervalMs: number
   ): void {
-    if (this.isRunning) this.stop();
+    if (this.isRunning) this.stop("restarting");
 
     this.target = target;
     this.scope = scope;
@@ -68,6 +74,13 @@ export class WatchModeController {
       this.host.onFileRenamed((oldPath) => this.checkRenamed(oldPath))
     );
 
+    this.logger.info("watch mode started", {
+      target: target.basename,
+      scope: scopeLabel(scope),
+      format: format.name,
+      pollIntervalMs,
+    });
+
     this.host.onStatusChange({
       running: true,
       targetName: target.basename,
@@ -76,8 +89,10 @@ export class WatchModeController {
     });
   }
 
-  stop(): void {
+  stop(reason = "manual stop"): void {
     if (!this.isRunning) return;
+
+    this.logger.info("watch mode stopped", { target: this.target?.basename ?? null, reason });
 
     this.watcher?.stop();
     this.watcher = null;
@@ -105,6 +120,7 @@ export class WatchModeController {
       // consecutive clipboard entries always land on their own line
       // regardless of what the active format's template contains.
       insertText(editor, `${renderFormat(this.format.template, content.text)}\n`);
+      this.logger.info("text inserted", { format: this.format.name, length: content.text.length });
       return;
     }
 
@@ -117,6 +133,7 @@ export class WatchModeController {
       bitmap: content.bitmap,
     });
     const link = await this.host.saveImageAttachment(png, target.path);
+    this.logger.info("image attachment saved", { link });
     // The session may have stopped or moved to a different target while
     // the save was in flight; discard the link rather than insert it
     // somewhere the user no longer expects it.
@@ -124,6 +141,7 @@ export class WatchModeController {
     const editor = this.host.findMarkdownLeafForPath(target.path);
     if (!editor) return;
     insertText(editor, `${renderFormat(format.template, link)}\n`);
+    this.logger.info("image inserted", { format: format.name, link });
 
     if (this.clearClipboardAfterImageInsert) {
       this.host.clearClipboard();
@@ -151,6 +169,6 @@ export class WatchModeController {
 
   private stopWithNotice(reason: string): void {
     this.host.notice(`Clipboard Monitor: watch mode stopped — ${reason}`);
-    this.stop();
+    this.stop(reason);
   }
 }

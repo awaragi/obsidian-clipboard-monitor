@@ -1,5 +1,6 @@
 import type { ClipboardImage, ClipboardReader } from "./clipboardReader";
 import { hashBufferFast, hashText } from "./hash";
+import { noopLogger, type Logger } from "../logger";
 
 export type ClipboardContent =
   | { type: "text"; text: string }
@@ -31,7 +32,8 @@ export class ClipboardWatcher {
   constructor(
     private readonly reader: ClipboardReader,
     private readonly onNewContent: ClipboardWatcherCallback,
-    private readonly intervalMs = 400
+    private readonly intervalMs = 400,
+    private readonly logger: Logger = noopLogger
   ) {}
 
   get isRunning(): boolean {
@@ -46,12 +48,18 @@ export class ClipboardWatcher {
     }
 
     const text = this.reader.readText();
-    if (!text) return;
+    if (!text) {
+      this.logger.debug("poll: no clipboard content");
+      return;
+    }
 
     const hash = hashText(text);
     if (this.isNewText(hash)) {
       this.lastContent = { type: "text", hash };
+      this.logger.debug("poll: new text detected", { length: text.length });
       this.onNewContent({ type: "text", text });
+    } else {
+      this.logger.debug("poll: duplicate text skipped");
     }
   }
 
@@ -68,9 +76,16 @@ export class ClipboardWatcher {
         height: currentImage.height,
         hash: hashBufferFast(currentImage.bitmap),
       };
+      this.logger.debug("start: primed dedupe with existing image", {
+        width: currentImage.width,
+        height: currentImage.height,
+      });
     } else {
       const currentText = this.reader.readText();
       this.lastContent = currentText ? { type: "text", hash: hashText(currentText) } : null;
+      this.logger.debug(
+        currentText ? "start: primed dedupe with existing text" : "start: clipboard empty, nothing to prime"
+      );
     }
 
     this.intervalId = setInterval(() => this.pollOnce(), this.intervalMs);
@@ -95,6 +110,7 @@ export class ClipboardWatcher {
     if (!dimensionsMatch) {
       const hash = hashBufferFast(image.bitmap);
       this.lastContent = { type: "image", width: image.width, height: image.height, hash };
+      this.logger.debug("poll: new image detected", { width: image.width, height: image.height });
       this.onNewContent({ type: "image", width: image.width, height: image.height, bitmap: image.bitmap });
       return;
     }
@@ -102,7 +118,10 @@ export class ClipboardWatcher {
     const hash = hashBufferFast(image.bitmap);
     if (last.hash !== hash) {
       this.lastContent = { type: "image", width: image.width, height: image.height, hash };
+      this.logger.debug("poll: new image detected", { width: image.width, height: image.height });
       this.onNewContent({ type: "image", width: image.width, height: image.height, bitmap: image.bitmap });
+    } else {
+      this.logger.debug("poll: duplicate image skipped");
     }
   }
 

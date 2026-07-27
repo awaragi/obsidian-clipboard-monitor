@@ -14,6 +14,8 @@ export interface FormatListHost {
   setClearClipboardAfterImageInsert(value: boolean): Promise<void>;
   getPollingFrequency(): PollingFrequency;
   setPollingFrequency(value: PollingFrequency): Promise<void>;
+  getDebugLoggingEnabled(): boolean;
+  setDebugLoggingEnabled(value: boolean): Promise<void>;
 }
 
 export class ClipboardMonitorSettingTab extends PluginSettingTab {
@@ -114,6 +116,19 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
         if (!confirmed) return;
         await this.mutate(() => resetToDefaults());
       });
+
+    containerEl.createEl("h3", { text: "Debugging" });
+    containerEl.createEl("p", {
+      text:
+        "Log watch mode's polling, dedupe, and insertion activity to Obsidian's developer console " +
+        "(View → Toggle Developer Tools → Console), prefixed with \"[Clipboard Monitor]\". Off by " +
+        "default. Takes effect immediately, even while watch mode is already running.",
+    });
+    new Setting(containerEl).setName("Debug logging").addToggle((toggle) =>
+      toggle.setValue(this.host.getDebugLoggingEnabled()).onChange(async (value) => {
+        await this.host.setDebugLoggingEnabled(value);
+      })
+    );
   }
 
   private renderFormatRow(containerEl: HTMLElement, format: TextFormat, index: number, total: number): void {
