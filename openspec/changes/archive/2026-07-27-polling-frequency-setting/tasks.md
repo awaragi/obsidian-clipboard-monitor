@@ -23,4 +23,4 @@
 ## 5. Verification
 
 - [x] 5.1 Run the full unit test suite and confirm it passes, including updated `watchModeController.spec.ts` and the new `pollingFrequency.spec.ts`.
-- [ ] 5.2 Manually build and load the plugin in Obsidian: confirm the setting appears with only Fast/Moderate/Slow labels (no numbers), defaults to Moderate on a fresh vault, and that changing it mid-session doesn't affect an already-running watch (verify by starting a watch, changing the setting, and confirming behavior only changes after stop/restart).
+- [x] 5.2 Manually build and load the plugin in Obsidian: confirm the setting appears with only Fast/Moderate/Slow labels (no numbers), defaults to Moderate on a fresh vault, and that changing it mid-session doesn't affect an already-running watch (verify by starting a watch, changing the setting, and confirming behavior only changes after stop/restart).
