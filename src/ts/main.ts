@@ -1,5 +1,6 @@
 import { Notice, Plugin, TFile } from "obsidian";
 import { ElectronClipboardReader } from "./clipboard/clipboardReader";
+import { t } from "./i18n/i18n";
 import { ClipboardMonitorSettingTab, type FormatListHost } from "./settings/clipboardMonitorSettingTab";
 import { DEFAULT_CONTENT_TYPE_SCOPE, type ContentTypeScope } from "./watchMode/contentTypeScope";
 import { createConsoleLogger } from "./logger";
@@ -53,19 +54,19 @@ export default class ClipboardMonitorPlugin extends Plugin {
 
     this.addCommand({
       id: "start-watch-mode",
-      name: "Start watch mode",
+      name: t("command.start_watch"),
       callback: () => this.startWatchMode(),
     });
 
     this.addCommand({
       id: "start-watch-mode-choose-settings",
-      name: "Start watch mode (choose settings)",
+      name: t("command.start_watch_choose_settings"),
       callback: () => this.startWatchModeChooseSettings(),
     });
 
     this.addCommand({
       id: "stop-watch-mode",
-      name: "Stop watch mode",
+      name: t("command.stop_watch"),
       callback: () => this.controller.stop(),
     });
   }
@@ -153,7 +154,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
   private getActiveFileOrNotice(): TFile | null {
     const file = this.app.workspace.getActiveFile();
     if (!(file instanceof TFile)) {
-      new Notice("Clipboard Monitor: open a note to start watch mode");
+      new Notice(t("notice.no_active_file"));
       return null;
     }
     return file;
@@ -162,8 +163,12 @@ export default class ClipboardMonitorPlugin extends Plugin {
   private renderStatus(status: WatchModeStatus): void {
     this.statusBarItem.setText(
       status.running
-        ? `Clipboard Monitor: ${status.targetName} — ${status.scopeLabel} — ${status.formatLabel}`
-        : "Clipboard Monitor: off"
+        ? t("statusbar.running", {
+            target: status.targetName ?? "",
+            scope: status.scopeLabel ?? "",
+            format: status.formatLabel ?? "",
+          })
+        : t("statusbar.idle")
     );
   }
 }

@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { isRtl, locale, t } from "../i18n/i18n";
 import { CONTENT_TYPE_SCOPE_OPTIONS, type ContentTypeScope } from "./contentTypeScope";
 import type { TextFormat } from "./textFormat";
 import type { WatchModeTarget } from "./types";
@@ -46,24 +47,25 @@ export class WatchModeSettingsModal extends Modal {
   }
 
   onOpen(): void {
-    this.setTitle("Start watch mode");
+    this.modalEl.setAttribute("dir", isRtl(locale()) ? "rtl" : "ltr");
+    this.setTitle(t("modal.watch.title"));
 
-    const targetSetting = new Setting(this.contentEl).setName("Target").setDesc(this.target.path);
+    const targetSetting = new Setting(this.contentEl).setName(t("modal.watch.target_label")).setDesc(this.target.path);
     targetSetting.descEl.setAttribute("title", this.target.path);
     targetSetting.descEl.style.whiteSpace = "nowrap";
     targetSetting.descEl.style.overflow = "hidden";
     targetSetting.descEl.style.textOverflow = "ellipsis";
 
-    new Setting(this.contentEl).setName("Content type").addDropdown((dropdown) => {
+    new Setting(this.contentEl).setName(t("modal.watch.content_type_label")).addDropdown((dropdown) => {
       for (const option of CONTENT_TYPE_SCOPE_OPTIONS) {
-        dropdown.addOption(option.value, option.label);
+        dropdown.addOption(option.value, t(option.labelKey));
       }
       dropdown.setValue(this.selectedScope).onChange((value) => {
         this.selectedScope = value as ContentTypeScope;
       });
     });
 
-    new Setting(this.contentEl).setName("Text format").addDropdown((dropdown) => {
+    new Setting(this.contentEl).setName(t("modal.watch.text_format_label")).addDropdown((dropdown) => {
       for (const format of this.formats) {
         dropdown.addOption(format.id, format.name);
       }
@@ -75,14 +77,14 @@ export class WatchModeSettingsModal extends Modal {
     new Setting(this.contentEl)
       .addButton((button) =>
         button
-          .setButtonText("Watch")
+          .setButtonText(t("modal.watch.watch_button"))
           .setCta()
           .onClick(() => {
             this.confirmed = true;
             this.close();
           })
       )
-      .addButton((button) => button.setButtonText("Cancel").onClick(() => this.close()));
+      .addButton((button) => button.setButtonText(t("common.cancel")).onClick(() => this.close()));
   }
 
   onClose(): void {

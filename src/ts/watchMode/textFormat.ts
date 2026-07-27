@@ -1,25 +1,32 @@
+import { t, type TranslationKey } from "../i18n/i18n";
+
 export interface TextFormat {
   id: string;
   name: string;
   template: string;
 }
 
-const DEFAULT_TEXT_FORMAT_DEFS: { name: string; template: string }[] = [
-  { name: "Raw", template: "\n{{content}}" },
-  { name: "Bullet", template: "\n- {{content}}" },
-  { name: "Timestamped", template: "\n**{{time}}** — {{content}}" },
-  { name: "Callout", template: "\n> [!note]\n> {{content}}" },
+const DEFAULT_TEXT_FORMAT_DEFS: { nameKey: TranslationKey; template: string }[] = [
+  { nameKey: "format.default.raw", template: "\n{{content}}" },
+  { nameKey: "format.default.bullet", template: "\n- {{content}}" },
+  { nameKey: "format.default.timestamped", template: "\n**{{time}}** — {{content}}" },
+  { nameKey: "format.default.callout", template: "\n> [!note]\n> {{content}}" },
 ];
 
-/** The four formats the plugin ships with, fixed for reference (e.g. display in docs/tests). */
+/** The four formats the plugin ships with, fixed for reference (e.g. display in docs/tests). Named per the active system locale. */
 export const DEFAULT_TEXT_FORMATS: TextFormat[] = DEFAULT_TEXT_FORMAT_DEFS.map((def) => ({
   id: crypto.randomUUID(),
-  ...def,
+  name: t(def.nameKey),
+  template: def.template,
 }));
 
-/** Returns a fresh copy of the shipped default formats, each with a newly generated id — used for first-install seeding and "Reset to defaults" so neither reuses a stale id. */
+/** Returns a fresh copy of the shipped default formats, each with a newly generated id and a name in the active system locale — used for first-install seeding and "Reset to defaults" so neither reuses a stale id or a stale locale's name. */
 export function createDefaultTextFormats(): TextFormat[] {
-  return DEFAULT_TEXT_FORMAT_DEFS.map((def) => ({ id: crypto.randomUUID(), ...def }));
+  return DEFAULT_TEXT_FORMAT_DEFS.map((def) => ({
+    id: crypto.randomUUID(),
+    name: t(def.nameKey),
+    template: def.template,
+  }));
 }
 
 function pad2(n: number): string {

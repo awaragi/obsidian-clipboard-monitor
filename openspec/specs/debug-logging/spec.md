@@ -4,7 +4,7 @@
 TBD - created by archiving change debug-logging-setting. Update Purpose after archive.
 ## Requirements
 ### Requirement: Debug Logging Setting
-The plugin SHALL persist a single boolean setting, `debugLoggingEnabled`, defaulting to `false`, controllable from a toggle in the plugin's settings tab.
+The plugin SHALL persist a single boolean setting, `debugLoggingEnabled`, defaulting to `false`, controllable from a toggle in the plugin's settings tab. The setting's name and description in the settings tab SHALL be shown in the active locale.
 
 #### Scenario: Default state for a new install
 - **WHEN** the plugin loads with no previously saved data
@@ -13,6 +13,10 @@ The plugin SHALL persist a single boolean setting, `debugLoggingEnabled`, defaul
 #### Scenario: Setting persists across reloads
 - **WHEN** a user enables the "Debug logging" toggle in settings and the plugin is later reloaded
 - **THEN** `debugLoggingEnabled` loads as `true`
+
+#### Scenario: Setting name and description are translated
+- **WHEN** the active locale is `fr` and the user opens the settings tab
+- **THEN** the "Debug logging" setting's name and description render in French
 
 ### Requirement: Master Switch Gates All Log Output
 When `debugLoggingEnabled` is `false`, the plugin SHALL produce no debug or info console output. When `debugLoggingEnabled` is `true`, every debug and info log call site SHALL fire. There is no intermediate verbosity level.

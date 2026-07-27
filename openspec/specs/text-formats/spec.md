@@ -8,13 +8,22 @@ A text format SHALL consist of a stable `id`, a `name`, and a `template`
 string containing a `{{content}}` token. The plugin SHALL ship four
 default formats — Raw (`{{content}}`), Bullet (`- {{content}}`),
 Timestamped (`**{{time}}** — {{content}}`), and Callout (`> [!note]\n>
-{{content}}`) — on first install.
+{{content}}`) — on first install and whenever the list is reset to
+defaults. The four default formats' `name` values SHALL be shown in the
+active locale (resolved fresh each time defaults are created); their
+`template` values are fixed and never translated.
 
 #### Scenario: Default formats are available on first install
 - **WHEN** the plugin loads for the first time, with no prior persisted
   data
 - **THEN** the managed format list contains exactly the four default
   formats (Raw, Bullet, Timestamped, Callout)
+
+#### Scenario: Default format names follow the active locale
+- **WHEN** the active locale is `fr` and the plugin seeds the default
+  format list (first install or "Reset to defaults")
+- **THEN** the four default formats' names appear in French, while their
+  templates are unchanged
 
 ### Requirement: Rendering a format substitutes its tokens
 Rendering a format's template with a piece of copied content SHALL
@@ -94,7 +103,11 @@ activation, and persist the choice as the new last-used format.
 The plugin's settings tab SHALL let the user add, edit, delete, and
 reorder text formats in the managed list, and reset the list to the
 four shipped defaults. The list SHALL always contain at least one
-format.
+format. The section heading, description, input placeholders, button
+labels ("Add", "Reset to defaults"), per-row move/delete tooltips, and
+the reset/delete confirmation dialogs' title, message, and confirm-button
+text SHALL be shown in the active locale. User-authored content (a
+format's own `name` and `template`) is never translated.
 
 #### Scenario: Adding a format
 - **WHEN** the user adds a new format with a name and template in the
@@ -110,6 +123,30 @@ format.
 - **WHEN** the user chooses "Reset to defaults" in the settings tab
 - **THEN** the managed list is replaced with the four shipped default
   formats, discarding any custom formats
+
+#### Scenario: Section chrome is translated
+- **WHEN** the active locale is `fr` and the user opens the settings tab
+- **THEN** the "Text formats" heading, its description, the "Name" and
+  template placeholders, and the "Add"/"Reset to defaults" buttons all
+  render in French
+
+#### Scenario: Row action tooltips are translated
+- **WHEN** the active locale is `es` and the user hovers a format row's
+  move-up, move-down, or delete icon
+- **THEN** the tooltip text renders in Spanish
+
+#### Scenario: Reset confirmation dialog is translated
+- **WHEN** the active locale is `ar` and the user clicks "Reset to
+  defaults"
+- **THEN** the confirmation dialog's title, message, and confirm button
+  render in Arabic
+
+#### Scenario: Delete confirmation dialog is translated, including the format's own name
+- **WHEN** the active locale is `ar` and the user deletes a format named
+  "Bullet"
+- **THEN** the confirmation dialog's title and confirm button render in
+  Arabic, and its message is the Arabic translation with "Bullet"
+  interpolated unchanged
 
 ### Requirement: Format list persists across restarts
 The managed format list and the last-used format SHALL persist across

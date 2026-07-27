@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { isRtl, locale, t } from "../i18n/i18n";
 
 /**
  * Prompts for a yes/no confirmation before a destructive action. Only the
@@ -28,6 +29,7 @@ export class ConfirmModal extends Modal {
   }
 
   onOpen(): void {
+    this.modalEl.setAttribute("dir", isRtl(locale()) ? "rtl" : "ltr");
     this.setTitle(this.title);
     this.contentEl.createEl("p", { text: this.message });
 
@@ -41,7 +43,7 @@ export class ConfirmModal extends Modal {
             this.close();
           })
       )
-      .addButton((button) => button.setButtonText("Cancel").onClick(() => this.close()));
+      .addButton((button) => button.setButtonText(t("common.cancel")).onClick(() => this.close()));
   }
 
   onClose(): void {

@@ -122,7 +122,7 @@ describe("WatchModeController", () => {
     expect(onStatusChange).toHaveBeenCalledWith({
       running: true,
       targetName: "Target",
-      scopeLabel: "Both",
+      scopeLabel: "Text & Images",
       formatLabel: "Raw",
     });
   });

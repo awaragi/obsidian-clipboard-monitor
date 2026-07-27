@@ -1,4 +1,5 @@
 import { ClipboardWatcher, type ClipboardContent, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
+import { t } from "../i18n/i18n";
 import { noopLogger, type Logger } from "../logger";
 import {
   CONTENT_TYPE_SCOPE_OPTIONS,
@@ -11,7 +12,7 @@ import { renderFormat, type TextFormat } from "./textFormat";
 import type { PollableWatcher, WatchModeEventRef, WatchModeHost, WatchModeTarget } from "./types";
 
 function scopeLabel(scope: ContentTypeScope): string {
-  return CONTENT_TYPE_SCOPE_OPTIONS.find((option) => option.value === scope)!.label;
+  return t(CONTENT_TYPE_SCOPE_OPTIONS.find((option) => option.value === scope)!.labelKey);
 }
 
 type WatcherFactory = (onNewContent: ClipboardWatcherCallback, pollIntervalMs: number) => PollableWatcher;

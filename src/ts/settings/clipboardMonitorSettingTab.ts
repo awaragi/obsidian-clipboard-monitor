@@ -2,6 +2,7 @@ import { App, ButtonComponent, ExtraButtonComponent, Plugin, PluginSettingTab, S
 import { ConfirmModal } from "./confirmModal";
 import { addFormat, deleteFormat, moveFormat, resetToDefaults, updateFormat } from "./formatListOps";
 import { escapeTemplateForInput, unescapeTemplateFromInput } from "./templateEscape";
+import { isRtl, locale, t } from "../i18n/i18n";
 import { POLLING_FREQUENCY_OPTIONS, type PollingFrequency } from "../watchMode/pollingFrequency";
 import { resolveLastUsedFormatId, type TextFormat } from "../watchMode/textFormat";
 
@@ -33,46 +34,30 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.setAttribute("dir", isRtl(locale()) ? "rtl" : "ltr");
 
-    containerEl.createEl("h3", { text: "Polling" });
-    containerEl.createEl("p", {
-      text:
-        "Obsidian doesn't give plugins a way to be notified when the system clipboard changes, so watch mode " +
-        "checks it on a repeating interval instead. Faster polling notices new clipboard content sooner but " +
-        "uses more CPU; slower polling is lighter but adds a little delay before content is inserted.",
-    });
-    containerEl.createEl("p", {
-      text:
-        "Tip: Fast polling paired with \"Clear clipboard after image insert\" below is a good combination for " +
-        "staying responsive without wasting CPU.",
-    });
-    new Setting(containerEl).setName("Polling frequency").addDropdown((dropdown) => {
+    containerEl.createEl("h3", { text: t("settings.polling.heading") });
+    containerEl.createEl("p", { text: t("settings.polling.desc") });
+    containerEl.createEl("p", { text: t("settings.polling.tip") });
+    new Setting(containerEl).setName(t("settings.polling.label")).addDropdown((dropdown) => {
       for (const option of POLLING_FREQUENCY_OPTIONS) {
-        dropdown.addOption(option.value, option.label);
+        dropdown.addOption(option.value, t(option.labelKey));
       }
       dropdown.setValue(this.host.getPollingFrequency()).onChange(async (value) => {
         await this.host.setPollingFrequency(value as PollingFrequency);
       });
     });
 
-    containerEl.createEl("h3", { text: "Images" });
-    containerEl.createEl("p", {
-      text:
-        "When an image is saved and inserted, clear the entire system clipboard immediately afterward — " +
-        "not just the inserted image, but every format currently on the clipboard (e.g. accompanying text " +
-        "from the same copy is lost too). Re-copying the same image afterward is treated as new content " +
-        "and will be inserted again. Off by default.",
-    });
-    new Setting(containerEl).setName("Clear clipboard after image insert").addToggle((toggle) =>
+    containerEl.createEl("h3", { text: t("settings.images.heading") });
+    containerEl.createEl("p", { text: t("settings.images.clear_after_insert.desc") });
+    new Setting(containerEl).setName(t("settings.images.clear_after_insert.label")).addToggle((toggle) =>
       toggle.setValue(this.host.getClearClipboardAfterImageInsert()).onChange(async (value) => {
         await this.host.setClearClipboardAfterImageInsert(value);
       })
     );
 
-    containerEl.createEl("h3", { text: "Text formats" });
-    containerEl.createEl("p", {
-      text: "Templates used to format clipboard text before it's inserted. Use {{content}} for the copied text, {{time}} for the current time, and \\n for a new line.",
-    });
+    containerEl.createEl("h3", { text: t("settings.formats.heading") });
+    containerEl.createEl("p", { text: t("settings.formats.desc") });
 
     const formats = this.host.getFormats();
     formats.forEach((format, index) => {
@@ -81,16 +66,16 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
 
     const addRow = containerEl.createDiv({ cls: "setting-item ccm-format-row" });
 
-    new TextComponent(addRow).setPlaceholder("Name").onChange((value) => {
+    new TextComponent(addRow).setPlaceholder(t("settings.formats.name_placeholder")).onChange((value) => {
       this.newName = value;
     });
 
-    new TextComponent(addRow).setPlaceholder("Template, e.g. \\n- {{content}}").onChange((value) => {
+    new TextComponent(addRow).setPlaceholder(t("settings.formats.template_placeholder")).onChange((value) => {
       this.newTemplate = value;
     });
 
     new ButtonComponent(addRow)
-      .setButtonText("Add")
+      .setButtonText(t("settings.formats.add_button"))
       .then((button) => button.buttonEl.classList.add("ccm-format-row-action"))
       .onClick(async () => {
         if (!this.newName || !this.newTemplate) return;
@@ -104,27 +89,22 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
     const resetRow = containerEl.createDiv({ cls: "setting-item ccm-format-row" });
 
     new ButtonComponent(resetRow)
-      .setButtonText("Reset to defaults")
+      .setButtonText(t("settings.formats.reset_button"))
       .then((button) => button.buttonEl.classList.add("ccm-format-row-action"))
       .onClick(async () => {
         const confirmed = await new ConfirmModal(
           this.app,
-          "Reset to defaults?",
-          "This replaces every text format with the shipped defaults. Your customizations can't be recovered.",
-          "Reset"
+          t("settings.formats.reset_confirm_title"),
+          t("settings.formats.reset_confirm_message"),
+          t("settings.formats.reset_confirm_button")
         ).open();
         if (!confirmed) return;
         await this.mutate(() => resetToDefaults());
       });
 
-    containerEl.createEl("h3", { text: "Debugging" });
-    containerEl.createEl("p", {
-      text:
-        "Log watch mode's polling, dedupe, and insertion activity to Obsidian's developer console " +
-        "(View → Toggle Developer Tools → Console), prefixed with \"[Clipboard Monitor]\". Off by " +
-        "default. Takes effect immediately, even while watch mode is already running.",
-    });
-    new Setting(containerEl).setName("Debug logging").addToggle((toggle) =>
+    containerEl.createEl("h3", { text: t("settings.debug.heading") });
+    containerEl.createEl("p", { text: t("settings.debug.desc") });
+    new Setting(containerEl).setName(t("settings.debug.label")).addToggle((toggle) =>
       toggle.setValue(this.host.getDebugLoggingEnabled()).onChange(async (value) => {
         await this.host.setDebugLoggingEnabled(value);
       })
@@ -146,7 +126,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
 
     new ExtraButtonComponent(row)
       .setIcon("arrow-up")
-      .setTooltip("Move up")
+      .setTooltip(t("settings.formats.move_up"))
       .setDisabled(index === 0)
       .onClick(async () => {
         await this.mutate((current) => moveFormat(current, format.id, "up"));
@@ -154,7 +134,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
 
     new ExtraButtonComponent(row)
       .setIcon("arrow-down")
-      .setTooltip("Move down")
+      .setTooltip(t("settings.formats.move_down"))
       .setDisabled(index === total - 1)
       .onClick(async () => {
         await this.mutate((current) => moveFormat(current, format.id, "down"));
@@ -162,14 +142,14 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
 
     new ExtraButtonComponent(row)
       .setIcon("trash")
-      .setTooltip("Delete")
+      .setTooltip(t("settings.formats.delete"))
       .setDisabled(total === 1)
       .onClick(async () => {
         const confirmed = await new ConfirmModal(
           this.app,
-          "Delete format?",
-          `Delete "${format.name}"? This can't be undone.`,
-          "Delete"
+          t("settings.formats.delete_confirm_title"),
+          t("settings.formats.delete_confirm_message", { name: format.name }),
+          t("settings.formats.delete")
         ).open();
         if (!confirmed) return;
         await this.mutate((current) => deleteFormat(current, format.id));

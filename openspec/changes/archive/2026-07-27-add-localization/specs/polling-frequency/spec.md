@@ -1,8 +1,5 @@
-# polling-frequency Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change polling-frequency-setting. Update Purpose after archive.
-## Requirements
 ### Requirement: Polling frequency setting
 
 The system SHALL provide a "Polling frequency" plugin setting with exactly
@@ -55,23 +52,3 @@ description block SHALL be shown in the active locale.
 #### Scenario: Description block is translated
 - **WHEN** the active locale is `fr` and the user opens the settings tab
 - **THEN** the description block renders in French
-
-### Requirement: Setting change does not affect an already-running watch session
-
-Changing the polling frequency setting SHALL take effect only for watch
-sessions started after the change. A watch session that is already running
-at the time the setting is changed SHALL continue polling at the interval
-that was in effect when it started, until it is stopped.
-
-#### Scenario: Changing the setting while a watch session is running
-
-- **WHEN** a watch session is started with the Moderate frequency, and the
-  user then changes the setting to Fast while that session is still running
-- **THEN** the running session continues polling at the Moderate interval
-
-#### Scenario: Setting change applies to the next session
-
-- **WHEN** a watch session is started with the Moderate frequency, the user
-  changes the setting to Fast, the session is stopped, and a new watch
-  session is then started
-- **THEN** the new session polls at the Fast interval
