@@ -2,6 +2,7 @@ import { App, ButtonComponent, ExtraButtonComponent, Plugin, PluginSettingTab, S
 import { ConfirmModal } from "./confirmModal";
 import { addFormat, deleteFormat, moveFormat, resetToDefaults, updateFormat } from "./formatListOps";
 import { escapeTemplateForInput, unescapeTemplateFromInput } from "./templateEscape";
+import { POLLING_FREQUENCY_OPTIONS, type PollingFrequency } from "../watchMode/pollingFrequency";
 import { resolveLastUsedFormatId, type TextFormat } from "../watchMode/textFormat";
 
 /** The slice of the plugin this settings tab needs — persisted format data plus a save hook. */
@@ -11,6 +12,8 @@ export interface FormatListHost {
   saveFormatData(formats: TextFormat[], lastUsedFormatId: string): Promise<void>;
   getClearClipboardAfterImageInsert(): boolean;
   setClearClipboardAfterImageInsert(value: boolean): Promise<void>;
+  getPollingFrequency(): PollingFrequency;
+  setPollingFrequency(value: PollingFrequency): Promise<void>;
 }
 
 export class ClipboardMonitorSettingTab extends PluginSettingTab {
@@ -28,6 +31,27 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+
+    containerEl.createEl("h3", { text: "Polling" });
+    containerEl.createEl("p", {
+      text:
+        "Obsidian doesn't give plugins a way to be notified when the system clipboard changes, so watch mode " +
+        "checks it on a repeating interval instead. Faster polling notices new clipboard content sooner but " +
+        "uses more CPU; slower polling is lighter but adds a little delay before content is inserted.",
+    });
+    containerEl.createEl("p", {
+      text:
+        "Tip: Fast polling paired with \"Clear clipboard after image insert\" below is a good combination for " +
+        "staying responsive without wasting CPU.",
+    });
+    new Setting(containerEl).setName("Polling frequency").addDropdown((dropdown) => {
+      for (const option of POLLING_FREQUENCY_OPTIONS) {
+        dropdown.addOption(option.value, option.label);
+      }
+      dropdown.setValue(this.host.getPollingFrequency()).onChange(async (value) => {
+        await this.host.setPollingFrequency(value as PollingFrequency);
+      });
+    });
 
     containerEl.createEl("h3", { text: "Images" });
     containerEl.createEl("p", {

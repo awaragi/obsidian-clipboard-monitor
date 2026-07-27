@@ -3,6 +3,7 @@ import { ElectronClipboardReader } from "./clipboard/clipboardReader";
 import { ClipboardMonitorSettingTab, type FormatListHost } from "./settings/clipboardMonitorSettingTab";
 import { DEFAULT_CONTENT_TYPE_SCOPE, type ContentTypeScope } from "./watchMode/contentTypeScope";
 import { createObsidianHost } from "./watchMode/obsidianHost";
+import { DEFAULT_POLLING_FREQUENCY, pollingFrequencyToMs, type PollingFrequency } from "./watchMode/pollingFrequency";
 import { createDefaultTextFormats, resolveLastUsedFormatId, type TextFormat } from "./watchMode/textFormat";
 import { WatchModeController } from "./watchMode/watchModeController";
 import { WatchModeSettingsModal } from "./watchMode/watchModeSettingsModal";
@@ -13,6 +14,7 @@ interface ClipboardMonitorData {
   formats: TextFormat[];
   lastUsedFormatId: string;
   clearClipboardAfterImageInsert: boolean;
+  pollingFrequency: PollingFrequency;
 }
 
 export default class ClipboardMonitorPlugin extends Plugin {
@@ -37,6 +39,8 @@ export default class ClipboardMonitorPlugin extends Plugin {
       saveFormatData: (formats, lastUsedFormatId) => this.persistFormats(formats, lastUsedFormatId),
       getClearClipboardAfterImageInsert: () => this.data.clearClipboardAfterImageInsert,
       setClearClipboardAfterImageInsert: (value) => this.persistClearClipboardAfterImageInsert(value),
+      getPollingFrequency: () => this.data.pollingFrequency,
+      setPollingFrequency: (value) => this.persistPollingFrequency(value),
     };
     this.addSettingTab(new ClipboardMonitorSettingTab(this.app, this, formatListHost));
 
@@ -71,6 +75,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
       formats,
       lastUsedFormatId: resolveLastUsedFormatId(formats, loaded?.lastUsedFormatId),
       clearClipboardAfterImageInsert: loaded?.clearClipboardAfterImageInsert ?? false,
+      pollingFrequency: loaded?.pollingFrequency ?? DEFAULT_POLLING_FREQUENCY,
     };
   }
 
@@ -85,6 +90,11 @@ export default class ClipboardMonitorPlugin extends Plugin {
     await this.saveData(this.data);
   }
 
+  private async persistPollingFrequency(value: PollingFrequency): Promise<void> {
+    this.data.pollingFrequency = value;
+    await this.saveData(this.data);
+  }
+
   private activeFormat(): TextFormat {
     const format = this.data.formats.find((f) => f.id === this.data.lastUsedFormatId);
     return format ?? this.data.formats[0];
@@ -93,7 +103,13 @@ export default class ClipboardMonitorPlugin extends Plugin {
   private startWatchMode(): void {
     const file = this.getActiveFileOrNotice();
     if (!file) return;
-    this.controller.start(file, this.data.lastUsedScope, this.activeFormat(), this.data.clearClipboardAfterImageInsert);
+    this.controller.start(
+      file,
+      this.data.lastUsedScope,
+      this.activeFormat(),
+      this.data.clearClipboardAfterImageInsert,
+      pollingFrequencyToMs(this.data.pollingFrequency)
+    );
   }
 
   private async startWatchModeChooseSettings(): Promise<void> {
@@ -112,7 +128,13 @@ export default class ClipboardMonitorPlugin extends Plugin {
     this.data.lastUsedScope = choice.scope;
     this.data.lastUsedFormatId = choice.format.id;
     await this.saveData(this.data);
-    this.controller.start(file, choice.scope, choice.format, this.data.clearClipboardAfterImageInsert);
+    this.controller.start(
+      file,
+      choice.scope,
+      choice.format,
+      this.data.clearClipboardAfterImageInsert,
+      pollingFrequencyToMs(this.data.pollingFrequency)
+    );
   }
 
   private getActiveFileOrNotice(): TFile | null {

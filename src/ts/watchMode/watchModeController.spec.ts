@@ -4,12 +4,15 @@ import type { ClipboardContent } from "../clipboard/clipboardWatcher";
 import type { ClipboardImage, ClipboardReader } from "../clipboard/clipboardReader";
 import type { EditorLike, EditorPositionLike, PollableWatcher, WatchModeHost } from "./types";
 
+/** Real timers are never advanced in these tests, but the default watcher factory still schedules a real setInterval, so this keeps it far out of the way. */
+const TEST_POLL_INTERVAL_MS = 10_000;
+
 /** Captures the onNewContent callback so tests can trigger clipboard "detections" directly, with no real timers. */
 function fakeWatcherFactory() {
   let onNewContent: (content: ClipboardContent) => void | Promise<void> = () => {};
   const watcher: PollableWatcher = { start: vi.fn(), stop: vi.fn() };
   return {
-    createWatcher: (cb: (content: ClipboardContent) => void) => {
+    createWatcher: (cb: (content: ClipboardContent) => void, _pollIntervalMs: number) => {
       onNewContent = cb;
       return watcher;
     },
@@ -106,9 +109,9 @@ describe("WatchModeController", () => {
 
   it("reports running state and target name on start", () => {
     const { host, onStatusChange } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
 
     expect(controller.isRunning).toBe(true);
     expect(onStatusChange).toHaveBeenCalledWith({
@@ -121,9 +124,9 @@ describe("WatchModeController", () => {
 
   it("reports stopped state on stop and unregisters listeners", () => {
     const { host, onStatusChange, offWorkspace, offVault } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     controller.stop();
 
     expect(controller.isRunning).toBe(false);
@@ -139,7 +142,7 @@ describe("WatchModeController", () => {
 
   it("stop() is a safe no-op when not running", () => {
     const { host, onStatusChange } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
     expect(() => controller.stop()).not.toThrow();
     expect(onStatusChange).not.toHaveBeenCalled();
@@ -151,8 +154,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerText("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
@@ -164,8 +167,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerText("first");
     triggerText("second");
 
@@ -178,8 +181,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", bulletFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", bulletFormat, false, TEST_POLL_INTERVAL_MS);
     triggerText("pasted content");
 
     expect(editor.text).toBe("- pasted content\n");
@@ -191,8 +194,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", bulletFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", bulletFormat, false, TEST_POLL_INTERVAL_MS);
     triggerText("first");
     triggerText("second");
 
@@ -203,8 +206,8 @@ describe("WatchModeController", () => {
     const { host } = fakeHost(fakeReader()); // no editors registered
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
 
     expect(() => triggerText("pasted content")).not.toThrow();
   });
@@ -215,8 +218,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "text", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "text", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerText("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
@@ -228,8 +231,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "image", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "image", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerText("pasted content");
 
     expect(editor.text).toBe("");
@@ -242,8 +245,8 @@ describe("WatchModeController", () => {
     const { createWatcher, triggerImage } = fakeWatcherFactory();
     const data = Buffer.from([1, 2, 3]);
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     await triggerImage(data);
 
     expect(saveImageAttachment).toHaveBeenCalledWith(data, target.path);
@@ -256,8 +259,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "image", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "image", rawFormat, false, TEST_POLL_INTERVAL_MS);
     await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(editor.text).toBe("![[Pasted image.png]]\n");
@@ -269,8 +272,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", bulletFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", bulletFormat, false, TEST_POLL_INTERVAL_MS);
     await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(editor.text).toBe("- ![[Pasted image.png]]\n");
@@ -282,8 +285,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", timestampedFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", timestampedFormat, false, TEST_POLL_INTERVAL_MS);
     await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(editor.text).toMatch(/^\*\*\d{2}:\d{2}\*\* — !\[\[Pasted image\.png\]\]\n$/);
@@ -295,8 +298,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "text", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "text", rawFormat, false, TEST_POLL_INTERVAL_MS);
     await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(saveImageAttachment).not.toHaveBeenCalled();
@@ -316,8 +319,8 @@ describe("WatchModeController", () => {
     );
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat, true);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, true, TEST_POLL_INTERVAL_MS);
     const pending = triggerImage(Buffer.from([1, 2, 3]));
     controller.stop(); // target changes to null while the save is still pending
     resolveSave("![[Pasted image.png]]");
@@ -333,8 +336,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat, true);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, true, TEST_POLL_INTERVAL_MS);
     await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(editor.text).toBe("![[Pasted image.png]]\n");
@@ -347,8 +350,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(editor.text).toBe("![[Pasted image.png]]\n");
@@ -364,8 +367,8 @@ describe("WatchModeController", () => {
     });
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat, true);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, true, TEST_POLL_INTERVAL_MS);
     await expect(triggerImage(Buffer.from([1, 2, 3]))).rejects.toThrow("save failed");
 
     expect(editor.text).toBe("");
@@ -378,8 +381,8 @@ describe("WatchModeController", () => {
     editors.set(target.path, editor);
     const { createWatcher, triggerText } = fakeWatcherFactory();
 
-    const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat, true);
+    const controller = new WatchModeController(host, createWatcher);
+    controller.start(target, "both", rawFormat, true, TEST_POLL_INTERVAL_MS);
     triggerText("pasted content");
 
     expect(editor.text).toBe("pasted content\n");
@@ -388,9 +391,9 @@ describe("WatchModeController", () => {
 
   it("auto-stops with a notice when the target note is no longer open", () => {
     const { host, notice, triggerLayoutChange } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat); // no editor registered -> "closed"
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS); // no editor registered -> "closed"
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(false);
@@ -400,9 +403,9 @@ describe("WatchModeController", () => {
   it("does not stop on layout-change while the target note is still open", () => {
     const { host, editors, notice, triggerLayoutChange } = fakeHost(fakeReader());
     editors.set(target.path, fakeEditor());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(true);
@@ -411,9 +414,9 @@ describe("WatchModeController", () => {
 
   it("auto-stops with a notice when the target note is deleted", () => {
     const { host, notice, triggerDeleted } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerDeleted(target.path);
 
     expect(controller.isRunning).toBe(false);
@@ -422,9 +425,9 @@ describe("WatchModeController", () => {
 
   it("ignores deletion of an unrelated file", () => {
     const { host, notice, triggerDeleted } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerDeleted("notes/Other.md");
 
     expect(controller.isRunning).toBe(true);
@@ -433,9 +436,9 @@ describe("WatchModeController", () => {
 
   it("auto-stops with a notice when the target note is renamed or moved", () => {
     const { host, notice, triggerRenamed } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
 
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
     triggerRenamed(target.path);
 
     expect(controller.isRunning).toBe(false);
@@ -444,11 +447,11 @@ describe("WatchModeController", () => {
 
   it("starting a new session while running stops the previous one first", () => {
     const { host, onStatusChange } = fakeHost(fakeReader());
-    const controller = new WatchModeController(host, 10_000);
+    const controller = new WatchModeController(host);
     const other = { path: "notes/Other.md", basename: "Other" };
 
-    controller.start(target, "text", rawFormat);
-    controller.start(other, "image", rawFormat);
+    controller.start(target, "text", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    controller.start(other, "image", rawFormat, false, TEST_POLL_INTERVAL_MS);
 
     expect(controller.currentTarget).toEqual(other);
     expect(onStatusChange.mock.calls.map((call) => call[0])).toEqual([
@@ -456,5 +459,22 @@ describe("WatchModeController", () => {
       { running: false, targetName: null, scopeLabel: null, formatLabel: null },
       { running: true, targetName: "Other", scopeLabel: "Images only", formatLabel: "Raw" },
     ]);
+  });
+
+  it("resolves the poll interval fresh on each start() call, not once at construction", () => {
+    const { host } = fakeHost(fakeReader());
+    const intervals: number[] = [];
+    const watcher: PollableWatcher = { start: vi.fn(), stop: vi.fn() };
+    const createWatcher = (_cb: (content: ClipboardContent) => void, pollIntervalMs: number) => {
+      intervals.push(pollIntervalMs);
+      return watcher;
+    };
+    const controller = new WatchModeController(host, createWatcher);
+
+    controller.start(target, "both", rawFormat, false, 1000);
+    controller.stop();
+    controller.start(target, "both", rawFormat, false, 500);
+
+    expect(intervals).toEqual([1000, 500]);
   });
 });

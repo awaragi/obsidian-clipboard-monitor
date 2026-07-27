@@ -13,9 +13,7 @@ function scopeLabel(scope: ContentTypeScope): string {
   return CONTENT_TYPE_SCOPE_OPTIONS.find((option) => option.value === scope)!.label;
 }
 
-const DEFAULT_POLL_INTERVAL_MS = 400;
-
-type WatcherFactory = (onNewContent: ClipboardWatcherCallback) => PollableWatcher;
+type WatcherFactory = (onNewContent: ClipboardWatcherCallback, pollIntervalMs: number) => PollableWatcher;
 
 /**
  * Orchestrates a single watch-mode session: starts/stops the clipboard
@@ -35,8 +33,7 @@ export class WatchModeController {
 
   constructor(
     private readonly host: WatchModeHost,
-    private readonly pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
-    private readonly createWatcher: WatcherFactory = (onNewContent) =>
+    private readonly createWatcher: WatcherFactory = (onNewContent, pollIntervalMs) =>
       new ClipboardWatcher(host.clipboardReader, onNewContent, pollIntervalMs)
   ) {}
 
@@ -52,7 +49,8 @@ export class WatchModeController {
     target: WatchModeTarget,
     scope: ContentTypeScope,
     format: TextFormat,
-    clearClipboardAfterImageInsert = false
+    clearClipboardAfterImageInsert: boolean,
+    pollIntervalMs: number
   ): void {
     if (this.isRunning) this.stop();
 
@@ -61,7 +59,7 @@ export class WatchModeController {
     this.format = format;
     this.clearClipboardAfterImageInsert = clearClipboardAfterImageInsert;
 
-    this.watcher = this.createWatcher((content) => this.handleNewContent(content));
+    this.watcher = this.createWatcher((content) => this.handleNewContent(content), pollIntervalMs);
     this.watcher.start();
 
     this.workspaceRefs.push(this.host.onLayoutChange(() => this.checkStillOpen()));
