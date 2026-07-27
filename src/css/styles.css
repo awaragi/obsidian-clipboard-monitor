@@ -1,0 +1,23 @@
+/* Also carries Obsidian's "setting-item" class so these rows share the same
+   box sizing/width as the "Setting" component above them, keeping the two
+   settings blocks aligned regardless of theme. Only override the vertical
+   padding — leave the horizontal padding as set by "setting-item" so the
+   left edge lines up too. */
+.ccm-format-row {
+  display: grid;
+  grid-template-columns: 8em 1fr auto auto auto;
+  align-items: center;
+  column-gap: 8px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.ccm-format-row input[type="text"] {
+  width: 100%;
+}
+
+/* Places the "Add" button in the same column as the trash icon of the format
+   rows above it, leaving the up/down columns intentionally blank. */
+.ccm-format-row-action {
+  grid-column: 5;
+}

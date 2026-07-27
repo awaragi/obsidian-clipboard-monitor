@@ -56,4 +56,7 @@ export interface WatchModeHost {
 
   /** Saves image data as a vault attachment and returns the generated link to insert. */
   saveImageAttachment(data: Buffer, sourcePath: string): Promise<string>;
+
+  /** Clears the entire system clipboard, all formats. */
+  clearClipboard(): void;
 }

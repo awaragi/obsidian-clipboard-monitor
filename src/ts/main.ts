@@ -12,6 +12,7 @@ interface ClipboardMonitorData {
   lastUsedScope: ContentTypeScope;
   formats: TextFormat[];
   lastUsedFormatId: string;
+  clearClipboardAfterImageInsert: boolean;
 }
 
 export default class ClipboardMonitorPlugin extends Plugin {
@@ -34,6 +35,8 @@ export default class ClipboardMonitorPlugin extends Plugin {
       getFormats: () => this.data.formats,
       getLastUsedFormatId: () => this.data.lastUsedFormatId,
       saveFormatData: (formats, lastUsedFormatId) => this.persistFormats(formats, lastUsedFormatId),
+      getClearClipboardAfterImageInsert: () => this.data.clearClipboardAfterImageInsert,
+      setClearClipboardAfterImageInsert: (value) => this.persistClearClipboardAfterImageInsert(value),
     };
     this.addSettingTab(new ClipboardMonitorSettingTab(this.app, this, formatListHost));
 
@@ -67,12 +70,18 @@ export default class ClipboardMonitorPlugin extends Plugin {
       lastUsedScope: loaded?.lastUsedScope ?? DEFAULT_CONTENT_TYPE_SCOPE,
       formats,
       lastUsedFormatId: resolveLastUsedFormatId(formats, loaded?.lastUsedFormatId),
+      clearClipboardAfterImageInsert: loaded?.clearClipboardAfterImageInsert ?? false,
     };
   }
 
   private async persistFormats(formats: TextFormat[], lastUsedFormatId: string): Promise<void> {
     this.data.formats = formats;
     this.data.lastUsedFormatId = lastUsedFormatId;
+    await this.saveData(this.data);
+  }
+
+  private async persistClearClipboardAfterImageInsert(value: boolean): Promise<void> {
+    this.data.clearClipboardAfterImageInsert = value;
     await this.saveData(this.data);
   }
 
@@ -84,7 +93,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
   private startWatchMode(): void {
     const file = this.getActiveFileOrNotice();
     if (!file) return;
-    this.controller.start(file, this.data.lastUsedScope, this.activeFormat());
+    this.controller.start(file, this.data.lastUsedScope, this.activeFormat(), this.data.clearClipboardAfterImageInsert);
   }
 
   private async startWatchModeChooseSettings(): Promise<void> {
@@ -103,7 +112,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
     this.data.lastUsedScope = choice.scope;
     this.data.lastUsedFormatId = choice.format.id;
     await this.saveData(this.data);
-    this.controller.start(file, choice.scope, choice.format);
+    this.controller.start(file, choice.scope, choice.format, this.data.clearClipboardAfterImageInsert);
   }
 
   private getActiveFileOrNotice(): TFile | null {

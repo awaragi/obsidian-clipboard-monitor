@@ -61,5 +61,9 @@ export function createObsidianHost(
       // a normal manual paste produces.
       return `!${app.fileManager.generateMarkdownLink(file, sourcePath)}`;
     },
+
+    clearClipboard() {
+      clipboardReader.clear();
+    },
   };
 }

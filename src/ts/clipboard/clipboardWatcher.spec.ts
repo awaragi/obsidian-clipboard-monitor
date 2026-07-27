@@ -1,19 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 import { ClipboardWatcher, type ClipboardContent } from "./clipboardWatcher";
-import type { ClipboardReader } from "./clipboardReader";
+import type { ClipboardImage, ClipboardReader } from "./clipboardReader";
+
+function img(bitmap: Buffer, width = 1, height = 1): ClipboardImage {
+  return { width, height, bitmap };
+}
 
 function fakeReader(
   initial = ""
-): ClipboardReader & { set(text: string): void; setImage(data: Buffer | null): void } {
+): ClipboardReader & { set(text: string): void; setImage(image: ClipboardImage | null): void } {
   let text = initial;
-  let image: Buffer | null = null;
+  let image: ClipboardImage | null = null;
   return {
     readText: () => text,
     readImage: () => image,
+    encodeImageToPng: (i) => i.bitmap,
+    clear: () => {},
     set: (next: string) => {
       text = next;
     },
-    setImage: (next: Buffer | null) => {
+    setImage: (next: ClipboardImage | null) => {
       image = next;
     },
   };
@@ -99,17 +105,17 @@ describe("ClipboardWatcher", () => {
     const watcher = new ClipboardWatcher(reader, onNewContent);
     const data = Buffer.from([1, 2, 3]);
 
-    reader.setImage(data);
+    reader.setImage(img(data));
     watcher.pollOnce();
     watcher.pollOnce();
 
     expect(onNewContent).toHaveBeenCalledTimes(1);
-    expect(onNewContent).toHaveBeenCalledWith({ type: "image", data });
+    expect(onNewContent).toHaveBeenCalledWith({ type: "image", width: 1, height: 1, bitmap: data });
   });
 
   it("ignores repeated identical image content across polls", () => {
     const reader = fakeReader();
-    reader.setImage(Buffer.from([1, 2, 3]));
+    reader.setImage(img(Buffer.from([1, 2, 3])));
     const onNewContent = vi.fn();
     const watcher = new ClipboardWatcher(reader, onNewContent);
 
@@ -119,16 +125,60 @@ describe("ClipboardWatcher", () => {
     expect(onNewContent).toHaveBeenCalledTimes(1);
   });
 
+  it("distinguishes two different images at the same dimensions", () => {
+    const reader = fakeReader();
+    reader.setImage(img(Buffer.from([1, 2, 3]), 10, 10));
+    const onNewContent = vi.fn();
+    const watcher = new ClipboardWatcher(reader, onNewContent);
+
+    watcher.pollOnce();
+    reader.setImage(img(Buffer.from([4, 5, 6]), 10, 10));
+    watcher.pollOnce();
+
+    expect(onNewContent).toHaveBeenCalledTimes(2);
+    expect(onNewContent).toHaveBeenNthCalledWith(1, {
+      type: "image",
+      width: 10,
+      height: 10,
+      bitmap: Buffer.from([1, 2, 3]),
+    });
+    expect(onNewContent).toHaveBeenNthCalledWith(2, {
+      type: "image",
+      width: 10,
+      height: 10,
+      bitmap: Buffer.from([4, 5, 6]),
+    });
+  });
+
+  it("treats a dimension change as new content without needing matching bitmaps", () => {
+    const reader = fakeReader();
+    reader.setImage(img(Buffer.from([1, 2, 3]), 10, 10));
+    const onNewContent = vi.fn();
+    const watcher = new ClipboardWatcher(reader, onNewContent);
+
+    watcher.pollOnce();
+    reader.setImage(img(Buffer.from([1, 2, 3]), 20, 20));
+    watcher.pollOnce();
+
+    expect(onNewContent).toHaveBeenCalledTimes(2);
+    expect(onNewContent).toHaveBeenNthCalledWith(2, {
+      type: "image",
+      width: 20,
+      height: 20,
+      bitmap: Buffer.from([1, 2, 3]),
+    });
+  });
+
   it("emits only the image when both new image and new text are present in the same tick", () => {
     const reader = fakeReader("some text");
-    reader.setImage(Buffer.from([1, 2, 3]));
+    reader.setImage(img(Buffer.from([1, 2, 3])));
     const onNewContent = vi.fn();
     const watcher = new ClipboardWatcher(reader, onNewContent);
 
     watcher.pollOnce();
 
     expect(onNewContent).toHaveBeenCalledTimes(1);
-    expect(onNewContent).toHaveBeenCalledWith({ type: "image", data: Buffer.from([1, 2, 3]) });
+    expect(onNewContent).toHaveBeenCalledWith({ type: "image", width: 1, height: 1, bitmap: Buffer.from([1, 2, 3]) });
   });
 
   it("detects text again after switching away from an image back to previously-seen text", () => {
@@ -137,7 +187,7 @@ describe("ClipboardWatcher", () => {
     const watcher = new ClipboardWatcher(reader, onNewContent);
 
     watcher.pollOnce(); // detects "original text"
-    reader.setImage(Buffer.from([1, 2, 3]));
+    reader.setImage(img(Buffer.from([1, 2, 3])));
     watcher.pollOnce(); // detects the image
     reader.setImage(null); // clipboard now back to the same text as before
 
@@ -146,14 +196,14 @@ describe("ClipboardWatcher", () => {
     const calls = onNewContent.mock.calls.map((call) => call[0] as ClipboardContent);
     expect(calls).toEqual([
       { type: "text", text: "original text" },
-      { type: "image", data: Buffer.from([1, 2, 3]) },
+      { type: "image", width: 1, height: 1, bitmap: Buffer.from([1, 2, 3]) },
       { type: "text", text: "original text" },
     ]);
   });
 
   it("start() primes dedupe so an already-present image isn't immediately re-inserted", () => {
     const reader = fakeReader();
-    reader.setImage(Buffer.from([1, 2, 3]));
+    reader.setImage(img(Buffer.from([1, 2, 3])));
     const onNewContent = vi.fn();
     const watcher = new ClipboardWatcher(reader, onNewContent, 10_000);
 

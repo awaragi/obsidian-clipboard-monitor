@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { WatchModeController } from "./watchModeController";
 import type { ClipboardContent } from "../clipboard/clipboardWatcher";
-import type { ClipboardReader } from "../clipboard/clipboardReader";
+import type { ClipboardImage, ClipboardReader } from "../clipboard/clipboardReader";
 import type { EditorLike, EditorPositionLike, PollableWatcher, WatchModeHost } from "./types";
 
 /** Captures the onNewContent callback so tests can trigger clipboard "detections" directly, with no real timers. */
@@ -15,7 +15,7 @@ function fakeWatcherFactory() {
     },
     trigger: (content: ClipboardContent) => onNewContent(content),
     triggerText: (text: string) => onNewContent({ type: "text", text }),
-    triggerImage: (data: Buffer) => onNewContent({ type: "image", data }),
+    triggerImage: (bitmap: Buffer) => onNewContent({ type: "image", width: 1, height: 1, bitmap }),
   };
 }
 
@@ -45,6 +45,7 @@ function fakeHost(reader: ClipboardReader) {
   const notice = vi.fn();
   const onStatusChange = vi.fn();
   const saveImageAttachment = vi.fn(async (_data: Buffer, _sourcePath: string) => "![[Pasted image.png]]");
+  const clearClipboard = vi.fn();
 
   const host: WatchModeHost = {
     clipboardReader: reader,
@@ -66,6 +67,7 @@ function fakeHost(reader: ClipboardReader) {
     notice,
     onStatusChange,
     saveImageAttachment,
+    clearClipboard,
   };
 
   return {
@@ -76,6 +78,7 @@ function fakeHost(reader: ClipboardReader) {
     notice,
     onStatusChange,
     saveImageAttachment,
+    clearClipboard,
     triggerLayoutChange: () => layoutChangeCallbacks.forEach((cb) => cb()),
     triggerDeleted: (path: string) => deletedCallbacks.forEach((cb) => cb(path)),
     triggerRenamed: (oldPath: string) => renamedCallbacks.forEach((cb) => cb(oldPath)),
@@ -87,6 +90,8 @@ function fakeReader(initial = ""): ClipboardReader & { set(text: string): void }
   return {
     readText: () => text,
     readImage: () => null,
+    encodeImageToPng: (image: ClipboardImage) => image.bitmap,
+    clear: () => {},
     set: (next: string) => {
       text = next;
     },
@@ -299,7 +304,7 @@ describe("WatchModeController", () => {
   });
 
   it("does not insert the link if the target changes while the save is in flight", async () => {
-    const { host, editors } = fakeHost(fakeReader());
+    const { host, editors, clearClipboard } = fakeHost(fakeReader());
     const editor = fakeEditor();
     editors.set(target.path, editor);
     let resolveSave: (link: string) => void = () => {};
@@ -312,13 +317,73 @@ describe("WatchModeController", () => {
     const { createWatcher, triggerImage } = fakeWatcherFactory();
 
     const controller = new WatchModeController(host, 10_000, createWatcher);
-    controller.start(target, "both", rawFormat);
+    controller.start(target, "both", rawFormat, true);
     const pending = triggerImage(Buffer.from([1, 2, 3]));
     controller.stop(); // target changes to null while the save is still pending
     resolveSave("![[Pasted image.png]]");
     await pending;
 
     expect(editor.text).toBe("");
+    expect(clearClipboard).not.toHaveBeenCalled();
+  });
+
+  it("clears the clipboard after a successful image insert when the setting is enabled", async () => {
+    const { host, editors, clearClipboard } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", rawFormat, true);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(editor.text).toBe("![[Pasted image.png]]\n");
+    expect(clearClipboard).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not clear the clipboard after an image insert when the setting is disabled (default)", async () => {
+    const { host, editors, clearClipboard } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", rawFormat);
+    await triggerImage(Buffer.from([1, 2, 3]));
+
+    expect(editor.text).toBe("![[Pasted image.png]]\n");
+    expect(clearClipboard).not.toHaveBeenCalled();
+  });
+
+  it("does not clear the clipboard when the image save fails", async () => {
+    const { host, editors, clearClipboard } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    host.saveImageAttachment = vi.fn(async () => {
+      throw new Error("save failed");
+    });
+    const { createWatcher, triggerImage } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", rawFormat, true);
+    await expect(triggerImage(Buffer.from([1, 2, 3]))).rejects.toThrow("save failed");
+
+    expect(editor.text).toBe("");
+    expect(clearClipboard).not.toHaveBeenCalled();
+  });
+
+  it("never clears the clipboard for a text insertion, even when the setting is enabled", () => {
+    const { host, editors, clearClipboard } = fakeHost(fakeReader());
+    const editor = fakeEditor();
+    editors.set(target.path, editor);
+    const { createWatcher, triggerText } = fakeWatcherFactory();
+
+    const controller = new WatchModeController(host, 10_000, createWatcher);
+    controller.start(target, "both", rawFormat, true);
+    triggerText("pasted content");
+
+    expect(editor.text).toBe("pasted content\n");
+    expect(clearClipboard).not.toHaveBeenCalled();
   });
 
   it("auto-stops with a notice when the target note is no longer open", () => {

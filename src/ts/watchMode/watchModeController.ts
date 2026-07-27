@@ -29,6 +29,7 @@ export class WatchModeController {
   private target: WatchModeTarget | null = null;
   private scope: ContentTypeScope | null = null;
   private format: TextFormat | null = null;
+  private clearClipboardAfterImageInsert = false;
   private workspaceRefs: WatchModeEventRef[] = [];
   private vaultRefs: WatchModeEventRef[] = [];
 
@@ -47,12 +48,18 @@ export class WatchModeController {
     return this.target;
   }
 
-  start(target: WatchModeTarget, scope: ContentTypeScope, format: TextFormat): void {
+  start(
+    target: WatchModeTarget,
+    scope: ContentTypeScope,
+    format: TextFormat,
+    clearClipboardAfterImageInsert = false
+  ): void {
     if (this.isRunning) this.stop();
 
     this.target = target;
     this.scope = scope;
     this.format = format;
+    this.clearClipboardAfterImageInsert = clearClipboardAfterImageInsert;
 
     this.watcher = this.createWatcher((content) => this.handleNewContent(content));
     this.watcher.start();
@@ -79,6 +86,7 @@ export class WatchModeController {
     this.target = null;
     this.scope = null;
     this.format = null;
+    this.clearClipboardAfterImageInsert = false;
 
     for (const ref of this.workspaceRefs) this.host.offWorkspace(ref);
     for (const ref of this.vaultRefs) this.host.offVault(ref);
@@ -105,7 +113,12 @@ export class WatchModeController {
     if (!shouldInsertImage(this.scope)) return;
     const target = this.target;
     const format = this.format;
-    const link = await this.host.saveImageAttachment(content.data, target.path);
+    const png = this.host.clipboardReader.encodeImageToPng({
+      width: content.width,
+      height: content.height,
+      bitmap: content.bitmap,
+    });
+    const link = await this.host.saveImageAttachment(png, target.path);
     // The session may have stopped or moved to a different target while
     // the save was in flight; discard the link rather than insert it
     // somewhere the user no longer expects it.
@@ -113,6 +126,10 @@ export class WatchModeController {
     const editor = this.host.findMarkdownLeafForPath(target.path);
     if (!editor) return;
     insertText(editor, `${renderFormat(format.template, link)}\n`);
+
+    if (this.clearClipboardAfterImageInsert) {
+      this.host.clearClipboard();
+    }
   }
 
   private checkStillOpen(): void {
