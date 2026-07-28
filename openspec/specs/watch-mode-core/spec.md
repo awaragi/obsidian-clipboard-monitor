@@ -90,9 +90,9 @@ by a newline, at the pinned target note's editor cursor in whichever open
 pane displays that note, regardless of whether that pane currently has
 focus, and SHALL advance the cursor past the inserted text and newline so
 that a subsequent insertion appends after it rather than overwriting it.
-The trailing newline is a placeholder default for this change only —
-Build Phase 4's managed text-format templates (proposal.md §4.3) replace
-it with a user-selected `{{content}}` template.
+The trailing newline is a placeholder default for this change only — the
+`text-formats` capability's managed templates replace it with a
+user-selected `{{content}}` template.
 
 #### Scenario: Insertion into an unfocused pane
 - **WHEN** the target note is open in a pane that is not the currently

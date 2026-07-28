@@ -44,11 +44,11 @@ export default class ClipboardMonitorPlugin extends Plugin {
       getLastUsedFormatId: () => this.data.lastUsedFormatId,
       saveFormatData: (formats, lastUsedFormatId) => this.persistFormats(formats, lastUsedFormatId),
       getClearClipboardAfterImageInsert: () => this.data.clearClipboardAfterImageInsert,
-      setClearClipboardAfterImageInsert: (value) => this.persistClearClipboardAfterImageInsert(value),
+      setClearClipboardAfterImageInsert: (value) => this.persist("clearClipboardAfterImageInsert", value),
       getPollingFrequency: () => this.data.pollingFrequency,
-      setPollingFrequency: (value) => this.persistPollingFrequency(value),
+      setPollingFrequency: (value) => this.persist("pollingFrequency", value),
       getDebugLoggingEnabled: () => this.data.debugLoggingEnabled,
-      setDebugLoggingEnabled: (value) => this.persistDebugLoggingEnabled(value),
+      setDebugLoggingEnabled: (value) => this.persist("debugLoggingEnabled", value),
     };
     this.addSettingTab(new ClipboardMonitorSettingTab(this.app, this, formatListHost));
 
@@ -94,18 +94,8 @@ export default class ClipboardMonitorPlugin extends Plugin {
     await this.saveData(this.data);
   }
 
-  private async persistClearClipboardAfterImageInsert(value: boolean): Promise<void> {
-    this.data.clearClipboardAfterImageInsert = value;
-    await this.saveData(this.data);
-  }
-
-  private async persistPollingFrequency(value: PollingFrequency): Promise<void> {
-    this.data.pollingFrequency = value;
-    await this.saveData(this.data);
-  }
-
-  private async persistDebugLoggingEnabled(value: boolean): Promise<void> {
-    this.data.debugLoggingEnabled = value;
+  private async persist<K extends keyof ClipboardMonitorData>(key: K, value: ClipboardMonitorData[K]): Promise<void> {
+    this.data[key] = value;
     await this.saveData(this.data);
   }
 
