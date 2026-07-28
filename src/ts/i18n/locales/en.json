@@ -42,7 +42,7 @@
   "settings.debug.desc": "Log watch mode's polling, dedupe, and insertion activity to Obsidian's developer console (View → Toggle Developer Tools → Console), prefixed with \"[Clipboard Monitor]\". Off by default. Takes effect immediately, even while watch mode is already running.",
   "settings.ribbon.heading": "Ribbon icon",
   "settings.ribbon.label": "Show ribbon icon",
-  "settings.ribbon.desc": "Show a clipboard icon in the left ribbon that opens \"Start watch mode (choose settings)\" when clicked. On by default. Takes effect the next time the plugin loads (e.g. after restarting Obsidian or toggling the plugin off and on).",
+  "settings.ribbon.desc": "Show a clipboard icon in the left ribbon that opens \"Start watch mode (choose settings)\" when clicked. Takes effect the next time the plugin loads (e.g. after restarting Obsidian or toggling the plugin off and on).",
   "ribbon.tooltip": "Start watch mode (choose settings)",
   "modal.watch.title": "Start watch mode",
   "modal.watch.target_label": "Target",

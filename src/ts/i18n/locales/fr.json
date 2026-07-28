@@ -42,7 +42,7 @@
   "settings.debug.desc": "Enregistre l'activité d'interrogation, de déduplication et d'insertion du mode surveillance dans la console de développement d'Obsidian (Affichage → Basculer les outils de développement → Console), préfixée par « [Clipboard Monitor] ». Désactivé par défaut. Prend effet immédiatement, même si le mode surveillance est déjà en cours d'exécution.",
   "settings.ribbon.heading": "Icône de ruban",
   "settings.ribbon.label": "Afficher l'icône du ruban",
-  "settings.ribbon.desc": "Affiche une icône de presse-papiers dans le ruban de gauche qui ouvre « Démarrer le mode surveillance (choisir les paramètres) » au clic. Activé par défaut. Prend effet au prochain chargement de l'extension (par exemple après un redémarrage d'Obsidian ou une désactivation/réactivation de l'extension).",
+  "settings.ribbon.desc": "Affiche une icône de presse-papiers dans le ruban de gauche qui ouvre « Démarrer le mode surveillance (choisir les paramètres) » au clic. Prend effet au prochain chargement de l'extension (par exemple après un redémarrage d'Obsidian ou une désactivation/réactivation de l'extension).",
   "ribbon.tooltip": "Démarrer le mode surveillance (choisir les paramètres)",
   "modal.watch.title": "Démarrer le mode surveillance",
   "modal.watch.target_label": "Cible",

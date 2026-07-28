@@ -42,7 +42,7 @@
   "settings.debug.desc": "Registra la actividad de sondeo, deduplicación e inserción del modo de vigilancia en la consola de desarrollador de Obsidian (Ver → Alternar herramientas de desarrollador → Consola), con el prefijo «[Clipboard Monitor]». Desactivado por defecto. Surte efecto de inmediato, incluso mientras el modo de vigilancia ya está en ejecución.",
   "settings.ribbon.heading": "Icono de la cinta",
   "settings.ribbon.label": "Mostrar icono en la cinta",
-  "settings.ribbon.desc": "Muestra un icono de portapapeles en la cinta izquierda que abre «Iniciar modo de vigilancia (elegir ajustes)» al hacer clic. Activado por defecto. Surte efecto la próxima vez que se cargue el plugin (por ejemplo, tras reiniciar Obsidian o desactivar y reactivar el plugin).",
+  "settings.ribbon.desc": "Muestra un icono de portapapeles en la cinta izquierda que abre «Iniciar modo de vigilancia (elegir ajustes)» al hacer clic. Surte efecto la próxima vez que se cargue el plugin (por ejemplo, tras reiniciar Obsidian o desactivar y reactivar el plugin).",
   "ribbon.tooltip": "Iniciar modo de vigilancia (elegir ajustes)",
   "modal.watch.title": "Iniciar modo de vigilancia",
   "modal.watch.target_label": "Destino",
