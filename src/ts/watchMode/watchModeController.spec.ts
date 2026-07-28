@@ -12,9 +12,22 @@ function fakeLogger(): Logger {
 /** Real timers are never advanced in these tests, but the default watcher factory still schedules a real setInterval, so this keeps it far out of the way. */
 const TEST_POLL_INTERVAL_MS = 10_000;
 
+/**
+ * `ClipboardWatcherCallback` is void-returning (real polling never awaits
+ * it), so `WatchModeController` fires content handling off without exposing
+ * its completion promise. Tests that care about the async image-save path
+ * completing (e.g. before asserting on editor/clipboard state) need to wait
+ * past it some other way — a macrotask boundary guarantees every pending
+ * microtask (including a resolved/rejected `saveImageAttachment`) has
+ * already settled.
+ */
+async function flushAsync(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /** Captures the onNewContent callback so tests can trigger clipboard "detections" directly, with no real timers. */
 function fakeWatcherFactory() {
-  let onNewContent: (content: ClipboardContent) => void | Promise<void> = () => {};
+  let onNewContent: (content: ClipboardContent) => void = () => {};
   const watcher: PollableWatcher = { start: vi.fn(), stop: vi.fn() };
   return {
     createWatcher: (cb: (content: ClipboardContent) => void, _pollIntervalMs: number) => {
@@ -23,7 +36,10 @@ function fakeWatcherFactory() {
     },
     trigger: (content: ClipboardContent) => onNewContent(content),
     triggerText: (text: string) => onNewContent({ type: "text", text }),
-    triggerImage: (bitmap: Buffer) => onNewContent({ type: "image", width: 1, height: 1, bitmap }),
+    triggerImage: async (bitmap: Buffer) => {
+      onNewContent({ type: "image", width: 1, height: 1, bitmap });
+      await flushAsync();
+    },
   };
 }
 
@@ -387,7 +403,7 @@ describe("WatchModeController", () => {
 
     const controller = new WatchModeController(host, createWatcher);
     controller.start(target, "both", rawFormat, true, TEST_POLL_INTERVAL_MS);
-    await expect(triggerImage(Buffer.from([1, 2, 3]))).rejects.toThrow("save failed");
+    await triggerImage(Buffer.from([1, 2, 3]));
 
     expect(editor.text).toBe("");
     expect(clearClipboard).not.toHaveBeenCalled();

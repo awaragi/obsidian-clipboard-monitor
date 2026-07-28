@@ -19,10 +19,10 @@ const DEFAULT_PREFIX = "[Clipboard Monitor]";
 export function createConsoleLogger(isEnabled: () => boolean, prefix = DEFAULT_PREFIX): Logger {
   return {
     debug: (message, ...args) => {
-      if (isEnabled()) console.debug(prefix, message, ...args);
+      if (isEnabled()) console.debug(prefix, "[debug]", message, ...args);
     },
     info: (message, ...args) => {
-      if (isEnabled()) console.info(prefix, message, ...args);
+      if (isEnabled()) console.debug(prefix, "[info]", message, ...args);
     },
   };
 }

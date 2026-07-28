@@ -77,7 +77,11 @@ export class WatchModeController {
     this.format = format;
     this.clearClipboardAfterImageInsert = clearClipboardAfterImageInsert;
 
-    this.watcher = this.createWatcher((content) => this.handleNewContent(content), pollIntervalMs);
+    this.watcher = this.createWatcher((content) => {
+      this.handleNewContent(content).catch((error: unknown) => {
+        this.logger.info("content handling failed", { error });
+      });
+    }, pollIntervalMs);
     this.watcher.start();
 
     this.workspaceRefs.push(this.host.onLayoutChange(() => this.checkStillOpen()));

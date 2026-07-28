@@ -38,7 +38,7 @@ export class WatchModeSettingsModal extends Modal {
     this.selectedFormat = formats.find((format) => format.id === initialFormatId) ?? formats[0];
   }
 
-  open(): Promise<WatchModeSettingsChoice | undefined> {
+  pickSettings(): Promise<WatchModeSettingsChoice | undefined> {
     const promise = new Promise<WatchModeSettingsChoice | undefined>((resolve) => {
       this.resolve = resolve;
     });
@@ -52,9 +52,11 @@ export class WatchModeSettingsModal extends Modal {
 
     const targetSetting = new Setting(this.contentEl).setName(t("modal.watch.target_label")).setDesc(this.target.path);
     targetSetting.descEl.setAttribute("title", this.target.path);
-    targetSetting.descEl.style.whiteSpace = "nowrap";
-    targetSetting.descEl.style.overflow = "hidden";
-    targetSetting.descEl.style.textOverflow = "ellipsis";
+    targetSetting.descEl.setCssStyles({
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    });
 
     new Setting(this.contentEl).setName(t("modal.watch.content_type_label")).addDropdown((dropdown) => {
       for (const option of CONTENT_TYPE_SCOPE_OPTIONS) {

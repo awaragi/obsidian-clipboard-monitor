@@ -140,7 +140,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
       this.data.formats,
       this.data.lastUsedScope,
       this.data.lastUsedFormatId
-    ).open();
+    ).pickSettings();
     if (!choice) return;
 
     this.data.lastUsedScope = choice.scope;

@@ -20,7 +20,7 @@ export class ConfirmModal extends Modal {
     super(app);
   }
 
-  open(): Promise<boolean> {
+  confirm(): Promise<boolean> {
     const promise = new Promise<boolean>((resolve) => {
       this.resolve = resolve;
     });

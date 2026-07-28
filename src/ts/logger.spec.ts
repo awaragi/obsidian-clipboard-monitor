@@ -8,26 +8,26 @@ describe("createConsoleLogger", () => {
 
   it("produces no console output when disabled", () => {
     const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     const logger = createConsoleLogger(() => false);
 
     logger.debug("tick");
     logger.info("started");
 
     expect(debugSpy).not.toHaveBeenCalled();
-    expect(infoSpy).not.toHaveBeenCalled();
   });
 
   it("logs both levels, prefixed, when enabled", () => {
+    // Obsidian's plugin guidelines only allow console.debug/warn/error, so
+    // both log levels route through console.debug — a "[debug]"/"[info]"
+    // tag keeps the two distinguishable in the console.
     const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     const logger = createConsoleLogger(() => true);
 
     logger.debug("tick", { count: 1 });
     logger.info("started", { target: "Note.md" });
 
-    expect(debugSpy).toHaveBeenCalledWith("[Clipboard Monitor]", "tick", { count: 1 });
-    expect(infoSpy).toHaveBeenCalledWith("[Clipboard Monitor]", "started", { target: "Note.md" });
+    expect(debugSpy).toHaveBeenNthCalledWith(1, "[Clipboard Monitor]", "[debug]", "tick", { count: 1 });
+    expect(debugSpy).toHaveBeenNthCalledWith(2, "[Clipboard Monitor]", "[info]", "started", { target: "Note.md" });
   });
 
   it("re-checks isEnabled on every call, so toggling takes effect without recreating the logger", () => {

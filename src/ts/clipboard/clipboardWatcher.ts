@@ -11,6 +11,16 @@ export type ClipboardWatcherCallback = (content: ClipboardContent) => void;
 type LastContent = { type: "text"; hash: string } | { type: "image"; width: number; height: number; hash: string };
 
 /**
+ * Obsidian's popout windows each have their own `window`, and its timers
+ * keep running independently of the main window's — using the bare global
+ * would silently tie polling to whichever window happened to be main at
+ * construction time. Falls back to `globalThis` under Vitest, where no
+ * `window` exists.
+ */
+type Timers = Pick<Window, "setInterval" | "clearInterval">;
+const timers: Timers = typeof window !== "undefined" ? window : globalThis;
+
+/**
  * Polls a ClipboardReader on an interval and invokes the callback only when
  * newly-read content's (type, hash) pair differs from the single last-seen
  * one — so switching from text to an image and back to that same text is
@@ -27,7 +37,7 @@ type LastContent = { type: "text"; hash: string } | { type: "image"; width: numb
  */
 export class ClipboardWatcher {
   private lastContent: LastContent | null = null;
-  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private intervalId: ReturnType<typeof timers.setInterval> | null = null;
 
   constructor(
     private readonly reader: ClipboardReader,
@@ -88,12 +98,12 @@ export class ClipboardWatcher {
       );
     }
 
-    this.intervalId = setInterval(() => this.pollOnce(), this.intervalMs);
+    this.intervalId = timers.setInterval(() => this.pollOnce(), this.intervalMs);
   }
 
   stop(): void {
     if (this.intervalId !== null) {
-      clearInterval(this.intervalId);
+      timers.clearInterval(this.intervalId);
       this.intervalId = null;
     }
     this.lastContent = null;

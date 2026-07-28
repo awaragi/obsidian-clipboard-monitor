@@ -38,7 +38,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.setAttribute("dir", isRtl(locale()) ? "rtl" : "ltr");
 
-    containerEl.createEl("h3", { text: t("settings.ribbon.heading") });
+    new Setting(containerEl).setName(t("settings.ribbon.heading")).setHeading();
     containerEl.createEl("p", { text: t("settings.ribbon.desc") });
     new Setting(containerEl).setName(t("settings.ribbon.label")).addToggle((toggle) =>
       toggle.setValue(this.host.getShowRibbonIcon()).onChange(async (value) => {
@@ -46,7 +46,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
       })
     );
 
-    containerEl.createEl("h3", { text: t("settings.polling.heading") });
+    new Setting(containerEl).setName(t("settings.polling.heading")).setHeading();
     containerEl.createEl("p", { text: t("settings.polling.desc") });
     containerEl.createEl("p", { text: t("settings.polling.tip") });
     new Setting(containerEl).setName(t("settings.polling.label")).addDropdown((dropdown) => {
@@ -58,7 +58,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
       });
     });
 
-    containerEl.createEl("h3", { text: t("settings.images.heading") });
+    new Setting(containerEl).setName(t("settings.images.heading")).setHeading();
     containerEl.createEl("p", { text: t("settings.images.clear_after_insert.desc") });
     new Setting(containerEl).setName(t("settings.images.clear_after_insert.label")).addToggle((toggle) =>
       toggle.setValue(this.host.getClearClipboardAfterImageInsert()).onChange(async (value) => {
@@ -66,7 +66,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
       })
     );
 
-    containerEl.createEl("h3", { text: t("settings.formats.heading") });
+    new Setting(containerEl).setName(t("settings.formats.heading")).setHeading();
     containerEl.createEl("p", { text: t("settings.formats.desc") });
 
     const formats = this.host.getFormats();
@@ -107,12 +107,12 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
           t("settings.formats.reset_confirm_title"),
           t("settings.formats.reset_confirm_message"),
           t("settings.formats.reset_confirm_button")
-        ).open();
+        ).confirm();
         if (!confirmed) return;
         await this.mutate(() => resetToDefaults());
       });
 
-    containerEl.createEl("h3", { text: t("settings.debug.heading") });
+    new Setting(containerEl).setName(t("settings.debug.heading")).setHeading();
     containerEl.createEl("p", { text: t("settings.debug.desc") });
     new Setting(containerEl).setName(t("settings.debug.label")).addToggle((toggle) =>
       toggle.setValue(this.host.getDebugLoggingEnabled()).onChange(async (value) => {
@@ -160,7 +160,7 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
           t("settings.formats.delete_confirm_title"),
           t("settings.formats.delete_confirm_message", { name: format.name }),
           t("settings.formats.delete")
-        ).open();
+        ).confirm();
         if (!confirmed) return;
         await this.mutate((current) => deleteFormat(current, format.id));
       });
