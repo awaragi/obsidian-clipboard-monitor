@@ -27,8 +27,8 @@ Each translated string SHALL be looked up in the active locale's translation obj
 - **WHEN** a translated string contains `{{name}}` and a vars map of `{ name: "Meeting Notes" }` is supplied
 - **THEN** the resolved string has `{{name}}` replaced with `Meeting Notes`
 
-### Requirement: French, Spanish, and Arabic locales are registered with complete translations
-`fr.json` (French), `es.json` (Spanish), and `ar.json` (Arabic) SHALL be registered in the locale map alongside `en` (the default/fallback), each providing a non-empty translation for every key present in `en.json`.
+### Requirement: French, Spanish, Arabic, and Japanese locales are registered with complete translations
+`fr.json` (French), `es.json` (Spanish), `ar.json` (Arabic), and `ja.json` (Japanese) SHALL be registered in the locale map alongside `en` (the default/fallback), each providing a non-empty translation for every key present in `en.json`.
 
 #### Scenario: French locale resolves a settings label
 - **WHEN** the active locale is `fr`
@@ -41,6 +41,10 @@ Each translated string SHALL be looked up in the active locale's translation obj
 #### Scenario: Arabic locale resolves a settings label
 - **WHEN** the active locale is `ar`
 - **THEN** `settings.polling.label` resolves to the Arabic translation, not the English fallback
+
+#### Scenario: Japanese locale resolves a settings label
+- **WHEN** the active locale is `ja`
+- **THEN** `settings.polling.label` resolves to the Japanese translation, not the English fallback
 
 ### Requirement: Locale completeness is verified without hardcoded key or locale lists
 A test SHALL verify, for every registered locale other than `en`, that every key present in `en.json` exists in that locale as a non-empty string. The test SHALL derive both the set of required keys and the set of locales to check dynamically (from `Object.keys` of the English translations object and from the registered locales map, respectively), so that adding a new key to `en.json` or a new locale to the locale map does not require any change to the test itself.
@@ -64,8 +68,8 @@ The plugin SHALL expose whether the active locale is right-to-left, used to driv
 - **WHEN** the active locale is `ar`
 - **THEN** the plugin reports the active locale as right-to-left
 
-#### Scenario: English, French, and Spanish are identified as LTR
-- **WHEN** the active locale is `en`, `fr`, or `es`
+#### Scenario: English, French, Spanish, and Japanese are identified as LTR
+- **WHEN** the active locale is `en`, `fr`, `es`, or `ja`
 - **THEN** the plugin reports the active locale as left-to-right
 
 ### Requirement: The shared confirmation modal and the settings tab set direction from the active locale

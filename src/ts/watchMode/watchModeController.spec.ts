@@ -128,7 +128,7 @@ describe("WatchModeController", () => {
   });
 
   it("reports stopped state on stop and unregisters listeners", () => {
-    const { host, onStatusChange, offWorkspace, offVault } = fakeHost(fakeReader());
+    const { host, onStatusChange, offWorkspace, offVault, notice } = fakeHost(fakeReader());
     const controller = new WatchModeController(host);
 
     controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
@@ -143,14 +143,27 @@ describe("WatchModeController", () => {
     });
     expect(offWorkspace).toHaveBeenCalledTimes(1);
     expect(offVault).toHaveBeenCalledTimes(2);
+    expect(notice).toHaveBeenLastCalledWith(expect.stringContaining("manual stop"));
+  });
+
+  it("shows a confirmation notice with target, scope, and format on start", () => {
+    const { host, notice } = fakeHost(fakeReader());
+    const controller = new WatchModeController(host);
+
+    controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining("Target"));
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining("Text & Images"));
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining("Raw"));
   });
 
   it("stop() is a safe no-op when not running", () => {
-    const { host, onStatusChange } = fakeHost(fakeReader());
+    const { host, onStatusChange, notice } = fakeHost(fakeReader());
     const controller = new WatchModeController(host);
 
     expect(() => controller.stop()).not.toThrow();
     expect(onStatusChange).not.toHaveBeenCalled();
+    expect(notice).not.toHaveBeenCalled();
   });
 
   it("inserts newly detected clipboard text followed by a newline", () => {
@@ -411,6 +424,7 @@ describe("WatchModeController", () => {
     const controller = new WatchModeController(host);
 
     controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    notice.mockClear(); // discard the start notice; this test only cares about the auto-stop check
     triggerLayoutChange();
 
     expect(controller.isRunning).toBe(true);
@@ -433,6 +447,7 @@ describe("WatchModeController", () => {
     const controller = new WatchModeController(host);
 
     controller.start(target, "both", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    notice.mockClear(); // discard the start notice; this test only cares about the auto-stop check
     triggerDeleted("notes/Other.md");
 
     expect(controller.isRunning).toBe(true);
@@ -463,6 +478,21 @@ describe("WatchModeController", () => {
       { running: true, targetName: "Target", scopeLabel: "Text only", formatLabel: "Raw" },
       { running: false, targetName: null, scopeLabel: null, formatLabel: null },
       { running: true, targetName: "Other", scopeLabel: "Images only", formatLabel: "Raw" },
+    ]);
+  });
+
+  it("notices the replaced session's stop, then the new session's start, when restarting", () => {
+    const { host, notice } = fakeHost(fakeReader());
+    const controller = new WatchModeController(host);
+    const other = { path: "notes/Other.md", basename: "Other" };
+
+    controller.start(target, "text", rawFormat, false, TEST_POLL_INTERVAL_MS);
+    notice.mockClear();
+    controller.start(other, "image", rawFormat, false, TEST_POLL_INTERVAL_MS);
+
+    expect(notice.mock.calls.map((call) => call[0])).toEqual([
+      expect.stringContaining("restarting"),
+      expect.stringContaining("Other"),
     ]);
   });
 

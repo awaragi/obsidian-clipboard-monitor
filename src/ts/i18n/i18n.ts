@@ -2,12 +2,13 @@ import en from "./locales/en.json";
 import fr from "./locales/fr.json";
 import es from "./locales/es.json";
 import ar from "./locales/ar.json";
+import ja from "./locales/ja.json";
 
 type Translations = typeof en;
 export type TranslationKey = keyof Translations;
 
 /** Registered locales, keyed by code. Exported so tests can verify completeness dynamically. */
-export const locales: Record<string, Partial<Translations>> = { en, fr, es, ar };
+export const locales: Record<string, Partial<Translations>> = { en, fr, es, ar, ja };
 
 /** Locale codes that read right-to-left, used to drive `dir` and mirrored layout. */
 const RTL_LOCALES = new Set(["ar"]);

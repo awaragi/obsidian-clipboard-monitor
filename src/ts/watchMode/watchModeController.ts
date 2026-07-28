@@ -1,5 +1,5 @@
 import { ClipboardWatcher, type ClipboardContent, type ClipboardWatcherCallback } from "../clipboard/clipboardWatcher";
-import { t } from "../i18n/i18n";
+import { t, type TranslationKey } from "../i18n/i18n";
 import { noopLogger, type Logger } from "../logger";
 import {
   CONTENT_TYPE_SCOPE_OPTIONS,
@@ -16,6 +16,17 @@ function scopeLabel(scope: ContentTypeScope): string {
 }
 
 type WatcherFactory = (onNewContent: ClipboardWatcherCallback, pollIntervalMs: number) => PollableWatcher;
+
+/** Why a running session ended. Doubles as the `logger.info` reason and the lookup key into `STOP_REASON_KEYS`. */
+export type WatchModeStopReason = "manual stop" | "restarting" | "note closed" | "note deleted" | "note moved";
+
+const STOP_REASON_KEYS: Record<WatchModeStopReason, TranslationKey> = {
+  "manual stop": "notice.stop_reason.manual",
+  restarting: "notice.stop_reason.restarting",
+  "note closed": "notice.stop_reason.note_closed",
+  "note deleted": "notice.stop_reason.note_deleted",
+  "note moved": "notice.stop_reason.note_moved",
+};
 
 /**
  * Orchestrates a single watch-mode session: starts/stops the clipboard
@@ -88,9 +99,11 @@ export class WatchModeController {
       scopeLabel: scopeLabel(scope),
       formatLabel: format.name,
     });
+
+    this.host.notice(t("notice.started", { target: target.basename, scope: scopeLabel(scope), format: format.name }));
   }
 
-  stop(reason = "manual stop"): void {
+  stop(reason: WatchModeStopReason = "manual stop"): void {
     if (!this.isRunning) return;
 
     this.logger.info("watch mode stopped", { target: this.target?.basename ?? null, reason });
@@ -108,6 +121,7 @@ export class WatchModeController {
     this.vaultRefs = [];
 
     this.host.onStatusChange({ running: false, targetName: null, scopeLabel: null, formatLabel: null });
+    this.host.notice(t("notice.stopped", { reason: t(STOP_REASON_KEYS[reason]) }));
   }
 
   private async handleNewContent(content: ClipboardContent): Promise<void> {
@@ -152,24 +166,19 @@ export class WatchModeController {
   private checkStillOpen(): void {
     if (!this.target) return;
     if (!this.host.findMarkdownLeafForPath(this.target.path)) {
-      this.stopWithNotice("note closed");
+      this.stop("note closed");
     }
   }
 
   private checkDeleted(path: string): void {
     if (this.target && path === this.target.path) {
-      this.stopWithNotice("note deleted");
+      this.stop("note deleted");
     }
   }
 
   private checkRenamed(oldPath: string): void {
     if (this.target && oldPath === this.target.path) {
-      this.stopWithNotice("note moved");
+      this.stop("note moved");
     }
-  }
-
-  private stopWithNotice(reason: string): void {
-    this.host.notice(`Clipboard Monitor: watch mode stopped — ${reason}`);
-    this.stop(reason);
   }
 }
