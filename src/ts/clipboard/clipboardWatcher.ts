@@ -1,3 +1,4 @@
+import type { Buffer } from "buffer";
 import type { ClipboardImage, ClipboardReader } from "./clipboardReader";
 import { hashBufferFast, hashText } from "./hash";
 import { noopLogger, type Logger } from "../logger";

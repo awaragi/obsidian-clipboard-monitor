@@ -1,4 +1,12 @@
-import { createHash } from "crypto";
+import { createHash as nodeCreateHash } from "crypto";
+
+/** Minimal, self-contained shape for what this module needs from Node's `Hash` — kept independent of `crypto`'s own (ambient-Buffer-dependent) declarations. */
+interface Digest {
+  update(data: string | Buffer): Digest;
+  digest(encoding: "hex"): string;
+}
+
+const createHash = nodeCreateHash as (algorithm: string) => Digest;
 
 export function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex");

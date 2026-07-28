@@ -1,4 +1,5 @@
 import { clipboard, nativeImage } from "electron";
+import type { Buffer } from "buffer";
 
 export interface ClipboardImage {
   width: number;

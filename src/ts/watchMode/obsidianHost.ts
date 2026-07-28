@@ -1,4 +1,5 @@
 import { App, MarkdownView, Notice, TAbstractFile } from "obsidian";
+import type { Buffer } from "buffer";
 import type { ClipboardReader } from "../clipboard/clipboardReader";
 import { generateAttachmentFilename } from "./attachmentFilename";
 import type { EditorLike, WatchModeHost, WatchModeStatus } from "./types";
