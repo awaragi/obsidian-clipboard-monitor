@@ -6,6 +6,8 @@ Turn your clipboard into a live feed into any note — copy something, anywhere,
 
 - **True background capture** — inserts into the target note even while Obsidian isn't the focused app. Alt-tab into a call, keep copying screenshots, and they still land in your notes.
 - **Pin a note and go** — the active note becomes the target the moment watch mode starts; no picker, no per-copy confirmation
+- **One-key toggle** — a single **Toggle watch mode** command starts or stops watching depending on current state, so one hotkey handles both directions
+- **Ribbon icon shortcut** *(on by default)* — a left-ribbon button that opens the settings picker with one click, whether or not watch mode is currently running
 - **Text and images** — copied text and copied images (e.g. screenshots, pasted from any app) are both supported, saved and linked exactly like a normal manual paste
 - **Content-type scope** — per session, watch for text only, images only, or both
 - **Managed text formats** — a reusable list of insertion templates (Raw, Bullet, Timestamped, Callout, or your own), selected per session and remembered as "last used"
@@ -40,6 +42,14 @@ Run **Start watch mode (choose settings)** to pick the content-type scope and te
 
 Run **Stop watch mode**, or just close, delete, or move the target note — any of those stops watch mode automatically, with a notice.
 
+### Toggle watching with one hotkey
+
+Bind a single hotkey to **Toggle watch mode** (Settings → Hotkeys) to start or stop with one key: it starts watch mode (using the last-used scope and format, same as **Start watch mode**) if it's currently stopped, or stops it if it's currently running. The dedicated **Start watch mode**, **Start watch mode (choose settings)**, and **Stop watch mode** commands are still available if you'd rather bind them separately.
+
+### Ribbon icon
+
+A clipboard icon in the left ribbon opens **Start watch mode (choose settings)** on click, whether or not watch mode is currently running — cancel the modal to leave a running session untouched, or confirm new settings to restart with them. Turn it off with the "Show ribbon icon" setting (see [Settings](#settings)); the change takes effect the next time the plugin loads.
+
 ### Text formats
 
 Templates use `{{content}}` for the copied text (or an image's generated embed link) and `{{time}}` for the current time (`HH:MM`). Ships with:
@@ -63,6 +73,7 @@ Open **Settings → Clipboard Monitor** to configure:
 | Clear clipboard after image insert | Off | Clears the *entire* system clipboard (all formats) right after an image is saved and inserted. Re-copying the same image afterward is treated as new content and reinserted. |
 | Text formats | 4 built-in | Managed list of insertion templates — add/edit/delete/reorder, or reset to defaults. |
 | Debug logging | Off | Logs polling, dedupe, and insertion activity to the developer console, prefixed `[Clipboard Monitor]`. Takes effect immediately, even mid-session. |
+| Show ribbon icon | On | Shows the left-ribbon shortcut icon. Takes effect the next time the plugin loads (e.g. after restarting Obsidian or toggling the plugin off and on). |
 
 Target note, content-type scope, and text format are deliberately **not** global settings — they're chosen per watch-mode session and remembered as "last used."
 

@@ -18,6 +18,7 @@ interface ClipboardMonitorData {
   clearClipboardAfterImageInsert: boolean;
   pollingFrequency: PollingFrequency;
   debugLoggingEnabled: boolean;
+  showRibbonIcon: boolean;
 }
 
 export default class ClipboardMonitorPlugin extends Plugin {
@@ -49,8 +50,14 @@ export default class ClipboardMonitorPlugin extends Plugin {
       setPollingFrequency: (value) => this.persist("pollingFrequency", value),
       getDebugLoggingEnabled: () => this.data.debugLoggingEnabled,
       setDebugLoggingEnabled: (value) => this.persist("debugLoggingEnabled", value),
+      getShowRibbonIcon: () => this.data.showRibbonIcon,
+      setShowRibbonIcon: (value) => this.persist("showRibbonIcon", value),
     };
     this.addSettingTab(new ClipboardMonitorSettingTab(this.app, this, formatListHost));
+
+    if (this.data.showRibbonIcon) {
+      this.addRibbonIcon("clipboard-check", t("ribbon.tooltip"), () => this.startWatchModeChooseSettings());
+    }
 
     this.addCommand({
       id: "start-watch-mode",
@@ -69,6 +76,12 @@ export default class ClipboardMonitorPlugin extends Plugin {
       name: t("command.stop_watch"),
       callback: () => this.controller.stop(),
     });
+
+    this.addCommand({
+      id: "toggle-watch-mode",
+      name: t("command.toggle_watch"),
+      callback: () => (this.controller.isRunning ? this.controller.stop() : this.startWatchMode()),
+    });
   }
 
   onunload() {
@@ -85,6 +98,7 @@ export default class ClipboardMonitorPlugin extends Plugin {
       clearClipboardAfterImageInsert: loaded?.clearClipboardAfterImageInsert ?? false,
       pollingFrequency: loaded?.pollingFrequency ?? DEFAULT_POLLING_FREQUENCY,
       debugLoggingEnabled: loaded?.debugLoggingEnabled ?? false,
+      showRibbonIcon: loaded?.showRibbonIcon ?? true,
     };
   }
 

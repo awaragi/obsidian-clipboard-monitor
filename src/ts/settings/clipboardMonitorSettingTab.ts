@@ -17,6 +17,8 @@ export interface FormatListHost {
   setPollingFrequency(value: PollingFrequency): Promise<void>;
   getDebugLoggingEnabled(): boolean;
   setDebugLoggingEnabled(value: boolean): Promise<void>;
+  getShowRibbonIcon(): boolean;
+  setShowRibbonIcon(value: boolean): Promise<void>;
 }
 
 export class ClipboardMonitorSettingTab extends PluginSettingTab {
@@ -35,6 +37,14 @@ export class ClipboardMonitorSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.setAttribute("dir", isRtl(locale()) ? "rtl" : "ltr");
+
+    containerEl.createEl("h3", { text: t("settings.ribbon.heading") });
+    containerEl.createEl("p", { text: t("settings.ribbon.desc") });
+    new Setting(containerEl).setName(t("settings.ribbon.label")).addToggle((toggle) =>
+      toggle.setValue(this.host.getShowRibbonIcon()).onChange(async (value) => {
+        await this.host.setShowRibbonIcon(value);
+      })
+    );
 
     containerEl.createEl("h3", { text: t("settings.polling.heading") });
     containerEl.createEl("p", { text: t("settings.polling.desc") });
