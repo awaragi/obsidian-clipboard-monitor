@@ -1,10 +1,9 @@
 import { App, MarkdownView, Notice, TAbstractFile } from "obsidian";
-import type { Buffer } from "buffer";
 import type { ClipboardReader } from "../clipboard/clipboardReader";
 import { generateAttachmentFilename } from "./attachmentFilename";
 import type { EditorLike, WatchModeHost, WatchModeStatus } from "./types";
 
-function toArrayBuffer(data: Buffer): ArrayBuffer {
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 }
 
@@ -52,7 +51,7 @@ export function createObsidianHost(
 
     onStatusChange,
 
-    async saveImageAttachment(data: Buffer, sourcePath: string): Promise<string> {
+    async saveImageAttachment(data: Uint8Array, sourcePath: string): Promise<string> {
       const filename = generateAttachmentFilename();
       const path = await app.fileManager.getAvailablePathForAttachment(filename, sourcePath);
       const file = await app.vault.createBinary(path, toArrayBuffer(data));

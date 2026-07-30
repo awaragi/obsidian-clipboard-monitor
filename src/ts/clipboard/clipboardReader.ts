@@ -1,10 +1,9 @@
 import { clipboard, nativeImage } from "electron";
-import type { Buffer } from "buffer";
 
 export interface ClipboardImage {
   width: number;
   height: number;
-  bitmap: Buffer;
+  bitmap: Uint8Array;
 }
 
 export interface ClipboardReader {
@@ -12,7 +11,7 @@ export interface ClipboardReader {
   /** Reads image dimensions and raw pixel data — no PNG encode. */
   readImage(): ClipboardImage | null;
   /** Encodes a previously-read image to PNG, deferred until actually needed (e.g. saving an attachment). */
-  encodeImageToPng(image: ClipboardImage): Buffer;
+  encodeImageToPng(image: ClipboardImage): Uint8Array;
   /** Clears the entire system clipboard, all formats. */
   clear(): void;
 }
@@ -29,7 +28,7 @@ export class ElectronClipboardReader implements ClipboardReader {
     return { width, height, bitmap: image.toBitmap() };
   }
 
-  encodeImageToPng(image: ClipboardImage): Buffer {
+  encodeImageToPng(image: ClipboardImage): Uint8Array {
     return nativeImage.createFromBitmap(image.bitmap, { width: image.width, height: image.height }).toPNG();
   }
 

@@ -1,25 +1,29 @@
-import type { Buffer } from "buffer";
 import type { ClipboardImage, ClipboardReader } from "./clipboardReader";
 import { hashBufferFast, hashText } from "./hash";
 import { noopLogger, type Logger } from "../logger";
 
 export type ClipboardContent =
   | { type: "text"; text: string }
-  | { type: "image"; width: number; height: number; bitmap: Buffer };
+  | { type: "image"; width: number; height: number; bitmap: Uint8Array };
 
 export type ClipboardWatcherCallback = (content: ClipboardContent) => void;
 
 type LastContent = { type: "text"; hash: string } | { type: "image"; width: number; height: number; hash: string };
 
 /**
- * Obsidian's popout windows each have their own `window`, and its timers
- * keep running independently of the main window's — using the bare global
- * would silently tie polling to whichever window happened to be main at
- * construction time. Falls back to `globalThis` under Vitest, where no
- * `window` exists.
+ * Minimal shape of the timer functions ClipboardWatcher needs, kept
+ * independent of DOM's and Node's own (mutually conflicting) ambient
+ * declarations for `setInterval`/`clearInterval`. Injectable so callers
+ * running inside a popout window can supply that window's own timers
+ * instead of the default, which resolves to whichever `window` this module
+ * happens to be loaded into.
  */
-type Timers = Pick<Window, "setInterval" | "clearInterval">;
-const timers: Timers = typeof window !== "undefined" ? window : globalThis;
+export interface Timers {
+  setInterval(handler: () => void, timeoutMs: number): unknown;
+  clearInterval(id: unknown): void;
+}
+
+const defaultTimers: Timers = { setInterval, clearInterval };
 
 /**
  * Polls a ClipboardReader on an interval and invokes the callback only when
@@ -38,13 +42,14 @@ const timers: Timers = typeof window !== "undefined" ? window : globalThis;
  */
 export class ClipboardWatcher {
   private lastContent: LastContent | null = null;
-  private intervalId: ReturnType<typeof timers.setInterval> | null = null;
+  private intervalId: unknown = null;
 
   constructor(
     private readonly reader: ClipboardReader,
     private readonly onNewContent: ClipboardWatcherCallback,
     private readonly intervalMs = 400,
-    private readonly logger: Logger = noopLogger
+    private readonly logger: Logger = noopLogger,
+    private readonly timers: Timers = defaultTimers
   ) {}
 
   get isRunning(): boolean {
@@ -99,12 +104,12 @@ export class ClipboardWatcher {
       );
     }
 
-    this.intervalId = timers.setInterval(() => this.pollOnce(), this.intervalMs);
+    this.intervalId = this.timers.setInterval(() => this.pollOnce(), this.intervalMs);
   }
 
   stop(): void {
     if (this.intervalId !== null) {
-      timers.clearInterval(this.intervalId);
+      this.timers.clearInterval(this.intervalId);
       this.intervalId = null;
     }
     this.lastContent = null;
