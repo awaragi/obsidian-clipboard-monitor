@@ -1,7 +1,7 @@
 {
   "id": "clipboard-monitor",
   "name": "Clipboard Monitor",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minAppVersion": "1.5.7",
   "description": "Watch the system clipboard and insert new content into a pinned note at its cursor, even when not in focus.",
   "author": "Pierre Awaragi",
