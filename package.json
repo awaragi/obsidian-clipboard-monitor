@@ -1,6 +1,6 @@
 {
   "name": "obsidian-clipboard-monitor",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Obsidian plugin: watch the clipboard and insert new content into a pinned note",
   "main": "main.js",
   "scripts": {
