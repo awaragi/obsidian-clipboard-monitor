@@ -279,4 +279,40 @@ describe("ClipboardWatcher", () => {
 
     expect(() => watcher.pollOnce()).not.toThrow();
   });
+
+  it("start()/stop() call the default setInterval/clearInterval through their receiver, not a detached reference (regression: real browsers throw 'Illegal invocation' otherwise)", async () => {
+    const originalSetInterval = globalThis.setInterval;
+    const originalClearInterval = globalThis.clearInterval;
+    // Real browsers/Electron require setInterval/clearInterval be invoked
+    // with `this` bound to their global receiver; a destructured reference
+    // (e.g. `{ setInterval }.setInterval(...)`) throws "Illegal invocation".
+    // Node/Vitest's globals don't enforce this, so this stub recreates the
+    // check to guard against reintroducing that bug.
+    globalThis.setInterval = function (this: unknown, ...args: Parameters<typeof setInterval>) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return originalSetInterval(...args);
+    } as typeof setInterval;
+    globalThis.clearInterval = function (this: unknown, ...args: Parameters<typeof clearInterval>) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return originalClearInterval(...args);
+    } as typeof clearInterval;
+
+    try {
+      // The module's default timers are captured once at module-evaluation
+      // time, so the stubs above must be in place *before* (re-)importing
+      // it — patching globalThis after a prior import wouldn't affect an
+      // already-captured reference.
+      vi.resetModules();
+      const { ClipboardWatcher: FreshClipboardWatcher } = await import("./clipboardWatcher");
+      const reader = fakeReader("hello");
+      const watcher = new FreshClipboardWatcher(reader, vi.fn());
+
+      expect(() => watcher.start()).not.toThrow();
+      expect(() => watcher.stop()).not.toThrow();
+    } finally {
+      globalThis.setInterval = originalSetInterval;
+      globalThis.clearInterval = originalClearInterval;
+      vi.resetModules();
+    }
+  });
 });

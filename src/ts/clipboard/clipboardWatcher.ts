@@ -23,7 +23,24 @@ export interface Timers {
   clearInterval(id: unknown): void;
 }
 
-const defaultTimers: Timers = { setInterval, clearInterval };
+/**
+ * Real browsers (including Electron's renderer) require `setInterval`/
+ * `clearInterval` to be invoked with `this` bound to a `Window`-like
+ * receiver — calling a destructured reference like `{ setInterval }.
+ * setInterval(...)` throws "Illegal invocation". Resolving the receiver
+ * lazily and calling through it (`receiver.setInterval(...)`) keeps that
+ * binding intact. Falls back to `globalThis` under Vitest, where no
+ * `window` exists; cast rather than typed against `Window` to avoid
+ * depending on DOM/Node's own ambient timer types.
+ */
+function timerReceiver(): Timers {
+  return (typeof window !== "undefined" ? window : globalThis) as unknown as Timers;
+}
+
+const defaultTimers: Timers = {
+  setInterval: (handler, timeoutMs) => timerReceiver().setInterval(handler, timeoutMs),
+  clearInterval: (id) => timerReceiver().clearInterval(id),
+};
 
 /**
  * Polls a ClipboardReader on an interval and invokes the callback only when
